@@ -51,13 +51,17 @@ export default function Hosts() {
   async function pollStatus() {
     try {
       const s = await api.scanStatus();
-      setScanning(s.running);
       if (s.lastScan) setLastScan(s.lastScan);
-      if (wasScanning.value && !s.running) {
+      const justFinished = wasScanning.value && !s.running;
+      if (justFinished) {
+        // Refresh the host list before clearing the spinner so the user sees
+        // the new records appear together with the completion toast.
+        await load();
         if (manualScan.value) toast.success('Scan complete');
         manualScan.value = false;
       }
       wasScanning.value = s.running;
+      setScanning(s.running);
     } catch {
       /* network blip — ignore */
     }
@@ -66,13 +70,16 @@ export default function Hosts() {
   useEffect(() => {
     load();
     pollStatus();
+    // Poll faster while a scan is running so the transition to "complete"
+    // and the refreshed list are reflected promptly in the UI.
+    const interval = scanning ? 1_000 : 5_000;
     const id = setInterval(() => {
       load();
       pollStatus();
-    }, 5_000);
+    }, interval);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q]);
+  }, [q, scanning]);
 
   const counts = useMemo(() => {
     const byVlan = new Map<number, number>();
