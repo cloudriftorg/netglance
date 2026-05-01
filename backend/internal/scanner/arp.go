@@ -1,9 +1,9 @@
-//go:build !linux
-
 package scanner
 
 import "net"
 
+// autoDetectCIDR returns the first non-loopback IPv4 interface as a /24 CIDR.
+// Used as a fallback when the user hasn't configured any networks yet.
 func autoDetectCIDR() string {
 	ifaces, err := net.Interfaces()
 	if err != nil {
