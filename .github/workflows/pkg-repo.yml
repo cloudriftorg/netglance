@@ -1,0 +1,160 @@
+name: Build & publish FreeBSD pkg repo
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # to push to gh-pages
+
+jobs:
+  build-pkgs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # for git describe inside the FreeBSD VM
+
+      # Build the source tarball that the FreeBSD port consumes. We do the
+      # frontend build on Linux (faster than inside the BSD VM) and ship the
+      # embedded dist/ inside the tarball so the BSD VM only needs Go.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+      - name: Stage frontend into backend
+        run: |
+          rm -rf backend/internal/webui/dist
+          mkdir -p backend/internal/webui/dist
+          cp -R frontend/dist/. backend/internal/webui/dist/
+
+      - name: Build .pkg files inside FreeBSD VM
+        uses: vmactions/freebsd-vm@v1
+        env:
+          PKG_SIGN_KEY: ${{ secrets.PKG_SIGN_KEY }}
+        with:
+          release: "14.1"
+          usesh: true
+          envs: "PKG_SIGN_KEY GITHUB_REF_NAME"
+          copyback: true
+          prepare: |
+            pkg install -y go124 git gmake bash arp-scan
+          run: |
+            set -eu
+            VERSION="${GITHUB_REF_NAME#v}"
+            [ -z "$VERSION" ] || [ "$VERSION" = "$GITHUB_REF_NAME" ] && VERSION="0.0.0-dev"
+
+            mkdir -p /tmp/pkgroot/usr/local/sbin
+            mkdir -p /tmp/pkgroot/usr/local/etc/rc.d
+            mkdir -p /tmp/pkgroot/usr/local/etc/netglance
+            mkdir -p /tmp/pkgroot/var/db/netglance
+
+            cd backend
+            CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64 \
+              go build -trimpath \
+                -ldflags="-s -w -X main.version=$VERSION" \
+                -o /tmp/pkgroot/usr/local/sbin/netglance \
+                ./cmd/server
+            cd ..
+
+            sed "s|%%PREFIX%%|/usr/local|g" \
+              deploy/freebsd-port/files/netglance.in \
+              > /tmp/pkgroot/usr/local/etc/rc.d/netglance
+            chmod +x /tmp/pkgroot/usr/local/etc/rc.d/netglance
+
+            mkdir -p /tmp/pkgs
+            cat > /tmp/netglance-manifest <<MAN
+            name: netglance
+            version: "$VERSION"
+            origin: net-mgmt/netglance
+            comment: "LAN host discovery and inventory daemon"
+            desc: "$(cat deploy/freebsd-port/pkg-descr)"
+            maintainer: massimo.schiavo.p@gmail.com
+            www: https://github.com/netglance/netglance
+            prefix: /usr/local
+            arch: FreeBSD:14:amd64
+            licenselogic: single
+            licenses: [MIT]
+            deps:
+              arp-scan: { origin: net-mgmt/arp-scan, version: "*" }
+            users: [netglance]
+            groups: [netglance]
+            files:
+              /usr/local/sbin/netglance: "-"
+              /usr/local/etc/rc.d/netglance: "-"
+            directories:
+              /usr/local/etc/netglance: y
+              /var/db/netglance: y
+            scripts:
+              post-install: |
+                pw groupadd -n netglance -g 950 2>/dev/null || true
+                pw useradd -n netglance -u 950 -g netglance -d /var/db/netglance -s /usr/sbin/nologin 2>/dev/null || true
+                chown netglance:netglance /var/db/netglance
+                chmod 750 /var/db/netglance
+            MAN
+            pkg create -M /tmp/netglance-manifest -r /tmp/pkgroot -o /tmp/pkgs
+
+            # ── os-netglance plugin pkg ────────────────────────────────
+            mkdir -p /tmp/plugroot
+            cp -R deploy/opnsense-plugin/src/. /tmp/plugroot/
+            cat > /tmp/os-netglance-manifest <<MAN
+            name: os-netglance
+            version: "$VERSION"
+            origin: opnsense/os-netglance
+            comment: "OPNsense plugin for netglance"
+            desc: "$(cat deploy/opnsense-plugin/pkg-descr)"
+            maintainer: massimo.schiavo.p@gmail.com
+            www: https://github.com/netglance/netglance
+            prefix: /
+            arch: FreeBSD:14:amd64
+            licenselogic: single
+            licenses: [MIT]
+            deps:
+              netglance: { origin: net-mgmt/netglance, version: "$VERSION" }
+            MAN
+            pkg create -M /tmp/os-netglance-manifest -r /tmp/plugroot -o /tmp/pkgs
+
+            # ── Build a signed pkg repo ────────────────────────────────
+            mkdir -p /tmp/repo/FreeBSD:14:amd64/All
+            cp /tmp/pkgs/*.pkg /tmp/repo/FreeBSD:14:amd64/All/
+
+            if [ -n "${PKG_SIGN_KEY:-}" ]; then
+              echo "$PKG_SIGN_KEY" > /tmp/repo.key
+              chmod 600 /tmp/repo.key
+              pkg repo /tmp/repo/FreeBSD:14:amd64 /tmp/repo.key
+              # Publish the public key alongside the metadata
+              openssl rsa -in /tmp/repo.key -pubout > /tmp/repo/repo.pub 2>/dev/null
+              rm -f /tmp/repo.key
+            else
+              echo "WARNING: PKG_SIGN_KEY secret is not set — building unsigned repo."
+              pkg repo /tmp/repo/FreeBSD:14:amd64
+            fi
+
+            # Copy the built repo into the workspace so the host job can
+            # pick it up after the VM exits (vmactions copyback transfers
+            # the workspace, not /tmp).
+            mkdir -p $GITHUB_WORKSPACE/pkg-repo
+            cp -R /tmp/repo/. $GITHUB_WORKSPACE/pkg-repo/
+
+      - name: Upload repo artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pkg-repo
+          path: pkg-repo
+          retention-days: 30
+
+      - name: Deploy to gh-pages
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: pkg-repo
+          keep_files: true
+          enable_jekyll: false
