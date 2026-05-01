@@ -45,6 +45,10 @@ jobs:
           envs: "PKG_SIGN_KEY GITHUB_REF_NAME"
           copyback: true
           prepare: |
+            # Upgrade first so newly-installed pkgs don't pull in shared
+            # libs incompatible with the VM image's preinstalled git
+            # (e.g. pcre2 version mismatch breaks ld-elf for git).
+            pkg upgrade -y
             pkg install -y go git gmake bash arp-scan jq
           run: |
             set -eu
