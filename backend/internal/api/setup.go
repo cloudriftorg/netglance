@@ -74,7 +74,7 @@ func setupHandler(st *store.Store) http.HandlerFunc {
 		if req.ScanEvery > 0 {
 			_ = st.SetSetting("scanEverySeconds", req.ScanEvery)
 		}
-		if err := auth.IssueSession(w, st, uid, r.TLS != nil); err != nil {
+		if err := auth.IssueSession(w, r, st, uid); err != nil {
 			http.Error(w, "session error", http.StatusInternalServerError)
 			return
 		}

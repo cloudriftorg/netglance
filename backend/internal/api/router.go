@@ -18,9 +18,7 @@ func NewRouter(st *store.Store, webuiHandler http.Handler) http.Handler {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]any{"status": "ok"})
-	})
+	r.Get("/healthz", healthzHandler(st))
 
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/setup/status", setupStatusHandler(st))
@@ -49,6 +47,16 @@ func NewRouter(st *store.Store, webuiHandler http.Handler) http.Handler {
 
 	r.Handle("/*", webuiHandler)
 	return r
+}
+
+func healthzHandler(st *store.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if err := st.DB().PingContext(r.Context()); err != nil {
+			writeJSON(w, http.StatusServiceUnavailable, map[string]any{"status": "db-unavailable"})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"status": "ok"})
+	}
 }
 
 func setupStatusHandler(st *store.Store) http.HandlerFunc {

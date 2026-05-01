@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -17,8 +18,21 @@ import (
 	"github.com/netglance/netglance/internal/webui"
 )
 
+// version is overridden at build time via -ldflags="-X main.version=..."
+var version = "dev"
+
 func main() {
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "healthcheck":
+			os.Exit(runHealthcheck())
+		case "version", "--version", "-v":
+			fmt.Println(version)
+			return
+		}
+	}
+
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	slog.SetDefault(logger)
 
 	cfg := config.Load()
@@ -65,7 +79,7 @@ func main() {
 	}
 
 	go func() {
-		slog.Info("netglance starting", "bind", cfg.Bind, "data", cfg.DataDir)
+		slog.Info("netglance starting", "version", version, "bind", cfg.Bind, "data", cfg.DataDir)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			slog.Error("listen", "err", err)
 			stop()
@@ -77,6 +91,30 @@ func main() {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	_ = srv.Shutdown(shutdownCtx)
+}
+
+// runHealthcheck is invoked by `netglance healthcheck` from the container's
+// HEALTHCHECK directive — distroless has no shell or curl, so the binary
+// dials its own /healthz endpoint and exits 0/1 accordingly.
+func runHealthcheck() int {
+	addr := os.Getenv("NETGLANCE_BIND")
+	if addr == "" || addr == ":8080" {
+		addr = "127.0.0.1:8080"
+	} else if addr[0] == ':' {
+		addr = "127.0.0.1" + addr
+	}
+	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Get("http://" + addr + "/healthz")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "healthcheck:", err)
+		return 1
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		fmt.Fprintln(os.Stderr, "healthcheck: status", resp.StatusCode)
+		return 1
+	}
+	return 0
 }
 
 type netCfg struct {

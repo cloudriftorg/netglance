@@ -31,7 +31,7 @@ func loginHandler(st *store.Store) http.HandlerFunc {
 			http.Error(w, "invalid credentials", http.StatusUnauthorized)
 			return
 		}
-		if err := auth.IssueSession(w, st, u.ID, r.TLS != nil); err != nil {
+		if err := auth.IssueSession(w, r, st, u.ID); err != nil {
 			http.Error(w, "session error", http.StatusInternalServerError)
 			return
 		}

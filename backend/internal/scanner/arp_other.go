@@ -1,9 +1,12 @@
-//go:build !linux && !darwin
+//go:build !linux
 
 package scanner
 
 import "net"
 
+// readARPTable is a no-op on non-Linux platforms. The supported runtime
+// target is Linux containers; this stub keeps the code building on other
+// platforms (e.g. for `go vet` in CI on macOS runners).
 func readARPTable() map[string]string { return nil }
 
 func autoDetectCIDR() string {

@@ -1,20 +1,34 @@
-# Default points at a locally-built image: run `docker build -t netglance:dev .`
-# (or `make docker`) once before `docker compose up -d`.
+# Pulls the published image from GHCR. Pin a specific tag in production
+# (e.g. v0.1.0) and bump deliberately; `latest` is fine for homelab.
 #
-# To pull from GHCR instead, swap the image to:
-#   image: ghcr.io/<your-github-username>/netglance:latest
+# For local development against your code, run `make docker` and swap
+# the image to `netglance:dev`.
 
 services:
   netglance:
-    image: netglance:dev
+    image: ghcr.io/massimoschiavop/netglance:latest
     container_name: netglance
     restart: unless-stopped
     network_mode: host
     cap_add:
       - NET_RAW
       - NET_ADMIN
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=16M
+    mem_limit: 256m
+    cpus: 1.0
+    pids_limit: 256
     volumes:
       - netglance_data:/data
+    healthcheck:
+      test: ["CMD", "/netglance", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
 volumes:
   netglance_data:

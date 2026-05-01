@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -34,7 +35,27 @@ func CheckPassword(hash, plain string) error {
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(plain))
 }
 
-func IssueSession(w http.ResponseWriter, st *store.Store, userID int64, secure bool) error {
+// isHTTPS returns true when the request is coming over HTTPS, either directly
+// (TLS terminated by us) or via a trusted reverse proxy that set
+// X-Forwarded-Proto. Used to gate the cookie Secure flag — without proxy
+// awareness, a TLS-terminated reverse proxy + plain backend would never get
+// a Secure cookie even though the user-facing connection is HTTPS.
+func isHTTPS(r *http.Request) bool {
+	if r.TLS != nil {
+		return true
+	}
+	if proto := r.Header.Get("X-Forwarded-Proto"); proto != "" {
+		// May contain a comma-separated list when traffic crosses multiple
+		// proxies — the first value is the closest to the client.
+		first := strings.TrimSpace(strings.SplitN(proto, ",", 2)[0])
+		if strings.EqualFold(first, "https") {
+			return true
+		}
+	}
+	return false
+}
+
+func IssueSession(w http.ResponseWriter, r *http.Request, st *store.Store, userID int64) error {
 	tok, err := randomToken()
 	if err != nil {
 		return err
@@ -54,7 +75,7 @@ func IssueSession(w http.ResponseWriter, st *store.Store, userID int64, secure b
 		Expires:  exp,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Secure:   secure,
+		Secure:   isHTTPS(r),
 	})
 	return nil
 }

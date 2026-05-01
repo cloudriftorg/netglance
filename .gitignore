@@ -1,7 +1,5 @@
 # Build artifacts
 /netglance
-/netglance-darwin-arm64
-/netglance-darwin-amd64
 backend/netglance
 frontend/dist/
 frontend/node_modules/
