@@ -45,7 +45,7 @@ jobs:
           envs: "PKG_SIGN_KEY GITHUB_REF_NAME"
           copyback: true
           prepare: |
-            pkg install -y go124 git gmake bash arp-scan
+            pkg install -y go git gmake bash arp-scan
           run: |
             set -eu
             VERSION="${GITHUB_REF_NAME#v}"
