@@ -12,7 +12,6 @@ type settingsBundle struct {
 	ScanEnabled      bool            `json:"scanEnabled"`
 	ScanEverySeconds int             `json:"scanEverySeconds"`
 	OfflineAfter     int             `json:"offlineAfter"`
-	PrimaryIface     string          `json:"primaryIface"`
 	SMTP             *SMTPConfig     `json:"smtp,omitempty"`
 	Notify           NotifyToggles   `json:"notify"`
 }
@@ -58,7 +57,6 @@ func putSettingsHandler(st *store.Store) http.HandlerFunc {
 		_ = st.SetSetting("scanEnabled", req.ScanEnabled)
 		_ = st.SetSetting("scanEverySeconds", req.ScanEverySeconds)
 		_ = st.SetSetting("offlineAfter", req.OfflineAfter)
-		_ = st.SetSetting("primaryIface", req.PrimaryIface)
 		_ = st.SetSetting("smtp", req.SMTP)
 		_ = st.SetSetting("notify", req.Notify)
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
@@ -71,7 +69,6 @@ func loadSettings(st *store.Store) settingsBundle {
 	_, _ = st.GetSetting("scanEnabled", &s.ScanEnabled)
 	_, _ = st.GetSetting("scanEverySeconds", &s.ScanEverySeconds)
 	_, _ = st.GetSetting("offlineAfter", &s.OfflineAfter)
-	_, _ = st.GetSetting("primaryIface", &s.PrimaryIface)
 	_, _ = st.GetSetting("smtp", &s.SMTP)
 	_, _ = st.GetSetting("notify", &s.Notify)
 	return s

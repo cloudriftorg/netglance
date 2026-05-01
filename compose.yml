@@ -1,12 +1,11 @@
-# Pulls the published image from GHCR. Pin a specific tag in production
-# (e.g. v0.1.0) and bump deliberately; `latest` is fine for homelab.
+# Production / homelab compose. Pulls the published image from GHCR.
+# Pin a specific tag (e.g. v0.1.0) for stability; `latest` is fine for homelab.
 #
-# For local development against your code, run `make docker` and swap
-# the image to `netglance:dev`.
+# `network_mode: host` is mandatory: arp-scan needs the host's real network
+# stack to send raw ARP requests. With a Docker bridge it would only see
+# the bridge subnet, not your LAN/VLANs.
 #
-# `network_mode: host` is required so the scanner sees the host's network
-# stack (LAN subnets, /proc/net/arp). Without it the container only sees
-# the Docker bridge.
+# For local development on macOS use `make local` (see compose.dev.yml).
 
 services:
   netglance:

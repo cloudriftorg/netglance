@@ -108,7 +108,6 @@ export interface Settings {
   scanEnabled: boolean;
   scanEverySeconds: number;
   offlineAfter: number;
-  primaryIface: string;
   smtp?: SMTPConfig;
   notify: NotifyToggles;
 }

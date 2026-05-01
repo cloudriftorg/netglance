@@ -37,7 +37,6 @@ func runScanHandler(st *store.Store) http.HandlerFunc {
 				ScanEnabled:      true,
 				ScanEverySeconds: s.ScanEverySeconds,
 				OfflineAfter:     s.OfflineAfter,
-				PrimaryIface:     s.PrimaryIface,
 			})
 		}()
 		writeJSON(w, http.StatusAccepted, map[string]any{"status": "started"})

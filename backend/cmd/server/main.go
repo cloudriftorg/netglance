@@ -130,7 +130,6 @@ func loadScannerSettings(st *store.Store) scanner.Settings {
 	_, _ = st.GetSetting("scanEnabled", &out.ScanEnabled)
 	_, _ = st.GetSetting("scanEverySeconds", &out.ScanEverySeconds)
 	_, _ = st.GetSetting("offlineAfter", &out.OfflineAfter)
-	_, _ = st.GetSetting("primaryIface", &out.PrimaryIface)
 	for _, n := range nets {
 		var v *int
 		if n.VLANID != 0 {

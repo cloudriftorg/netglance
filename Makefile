@@ -1,19 +1,48 @@
-.PHONY: dev backend-dev frontend-dev build docker test tidy clean
+.PHONY: help local local-stop logs reset ui build docker test tidy clean
 
-dev:
-	@echo "Backend: http://localhost:8080  |  Frontend (Vite): http://localhost:5173"
-	@( cd backend && go run ./cmd/server ) & \
-	 ( cd frontend && npm run dev ) ; \
-	 wait
+help:
+	@echo "netglance — make targets"
+	@echo ""
+	@echo "  make local        Build & run the full app in Docker (http://localhost:8080)"
+	@echo "  make local-stop   Stop the local container"
+	@echo "  make logs         Tail logs of the local container"
+	@echo "  make reset        Wipe the local DB volume (next run = fresh setup)"
+	@echo ""
+	@echo "  make ui           Frontend dev server with HMR; proxies /api to a remote"
+	@echo "                    backend (default: http://192.168.1.21:8080). Override:"
+	@echo "                    make ui BACKEND=http://other:8080"
+	@echo ""
+	@echo "  make build        Static binary at ./netglance (frontend embedded)"
+	@echo "  make docker       Build the Docker image as netglance:dev"
+	@echo "  make test         Run Go tests"
+	@echo "  make tidy         go mod tidy"
+	@echo "  make clean        Remove build artifacts"
 
-backend-dev:
-	cd backend && go run ./cmd/server
+# ── Run the whole app locally in Docker ──────────────────────────────
+# macOS caveat: the scanner sees only Docker's internal network (Docker
+# Desktop runs containers in a Linux VM). Fine for UI / settings / DB
+# migrations; for real LAN/VLAN scanning you need a Linux host with
+# `network_mode: host` (see compose.yml).
+local:
+	docker compose -f compose.dev.yml up -d --build
+	@echo "→ http://localhost:8080"
 
-frontend-dev:
-	cd frontend && npm run dev
+local-stop:
+	docker compose -f compose.dev.yml down
 
-# Build static frontend, embed into Go binary, produce ./netglance.
-# Linux/amd64 by default; override with GOOS/GOARCH if needed.
+logs:
+	docker compose -f compose.dev.yml logs -f
+
+reset:
+	docker compose -f compose.dev.yml down -v
+
+# ── Frontend HMR against a remote backend ────────────────────────────
+BACKEND ?= http://192.168.1.21:8080
+ui:
+	@echo "→ http://localhost:5173  (proxying /api → $(BACKEND))"
+	cd frontend && VITE_BACKEND_URL=$(BACKEND) npm run dev
+
+# ── Build / utilities ────────────────────────────────────────────────
 build:
 	cd frontend && npm install --no-audit --no-fund && npm run build
 	rm -rf backend/internal/webui/dist

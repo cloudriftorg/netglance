@@ -76,9 +76,6 @@ export default function SettingsPage() {
         <Field label="Mark offline after N missed scans">
           <input className="input" type="number" min={1} value={s.offlineAfter} onChange={(e) => update('offlineAfter', Number(e.target.value))} />
         </Field>
-        <Field label="Primary interface (optional, auto-detect if empty)">
-          <input className="input" value={s.primaryIface} onChange={(e) => update('primaryIface', e.target.value)} placeholder="eth0" />
-        </Field>
       </Section>
 
       <Section title="SMTP" desc="Plain (no auth/no TLS) works for an internal LAN relay. STARTTLS or implicit TLS for external providers.">

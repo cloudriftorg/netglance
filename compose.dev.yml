@@ -1,0 +1,28 @@
+# Local development override.
+# Builds the image from the current source tree (no registry pull) and exposes
+# the app on http://localhost:8080. On macOS the container only sees Docker's
+# internal network (Docker Desktop runs containers inside a Linux VM), so the
+# scanner won't list real LAN devices — that's a Docker-Desktop limitation,
+# not netglance. Use `make ui` against the production VM if you need a real
+# device list.
+#
+# One-shot run:    make local
+# Logs:            docker compose -f compose.dev.yml logs -f
+# Stop:            make local-stop
+
+services:
+  netglance:
+    image: netglance:dev
+    build:
+      context: .
+      args:
+        VERSION: dev-local
+    container_name: netglance-dev
+    ports:
+      - "8080:8080"
+    volumes:
+      - netglance_dev_data:/data
+    restart: unless-stopped
+
+volumes:
+  netglance_dev_data:

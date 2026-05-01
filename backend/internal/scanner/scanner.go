@@ -23,7 +23,6 @@ type Settings struct {
 	ScanEnabled      bool
 	ScanEverySeconds int
 	OfflineAfter     int
-	PrimaryIface     string
 }
 
 type Discovery struct {
