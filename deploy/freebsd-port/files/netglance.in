@@ -1,0 +1,43 @@
+#!/bin/sh
+#
+# PROVIDE: netglance
+# REQUIRE: NETWORKING
+# KEYWORD: shutdown
+#
+# Add the following lines to /etc/rc.conf.local or /etc/rc.conf
+# to enable this service:
+#
+# netglance_enable (bool):  Set to NO by default.
+#                           Set it to YES to enable netglance.
+# netglance_user (string):  Set user that netglance will run under.
+#                           Default is "netglance".
+# netglance_group (string): Set group that netglance will run under.
+#                           Default is "netglance".
+# netglance_env_file (str): Path to env file sourced before start.
+#                           Default is "%%PREFIX%%/etc/netglance/netglance.env".
+#                           This is the file the os-netglance OPNsense plugin
+#                           regenerates from its config model on every save.
+
+. /etc/rc.subr
+
+name=netglance
+rcvar=netglance_enable
+
+load_rc_config $name
+
+: ${netglance_enable:=NO}
+: ${netglance_user:=netglance}
+: ${netglance_group:=netglance}
+: ${netglance_env_file:=%%PREFIX%%/etc/netglance/netglance.env}
+
+pidfile=/var/run/${name}.pid
+logfile=/var/log/${name}.log
+command=/usr/sbin/daemon
+procname=%%PREFIX%%/sbin/${name}
+command_args="-f -p ${pidfile} -o ${logfile} -t ${name} -u ${netglance_user} \
+    /bin/sh -c '[ -r ${netglance_env_file} ] && . ${netglance_env_file}; \
+    exec ${procname}'"
+
+required_files="${procname}"
+
+run_rc_command "$1"
