@@ -16,6 +16,7 @@ export default function Hosts() {
   const [vlan, setVlan] = useState<number | null>(null);
   const [scanning, setScanning] = useState(false);
   const [lastScan, setLastScan] = useState<Scan | null>(null);
+  const [nextScanAt, setNextScanAt] = useState<number | null>(null);
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' } | null>(loadSortPref);
 
   // Persist sort preference across reloads. `null` (unsorted) clears the
@@ -52,6 +53,7 @@ export default function Hosts() {
     try {
       const s = await api.scanStatus();
       if (s.lastScan) setLastScan(s.lastScan);
+      setNextScanAt(s.nextScanAt ?? null);
       const justFinished = wasScanning.value && !s.running;
       if (justFinished) {
         // Refresh the host list before clearing the spinner so the user sees
@@ -196,6 +198,7 @@ export default function Hosts() {
       {/* Mobile-only: badge on its own row, inheriting parent's space-y gap */}
       <div className="sm:hidden">
         <LastScanBadge scan={lastScan} scanning={scanning} />
+        <NextScanBadge nextAt={nextScanAt} scanning={scanning} />
       </div>
 
       <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -209,6 +212,7 @@ export default function Hosts() {
         ))}
         {/* Desktop-only: badge right-aligned on the filter row */}
         <LastScanBadge scan={lastScan} scanning={scanning} className="ml-auto hidden sm:inline-flex" />
+        <NextScanBadge nextAt={nextScanAt} scanning={scanning} className="hidden sm:inline-flex" />
       </div>
 
       {hosts.length === 0 ? (
@@ -413,6 +417,53 @@ function LastScanBadge({ scan, scanning, className }: { scan: Scan | null; scann
       <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
       Last scan {formatted}
     </span>
+  );
+}
+
+function NextScanBadge({
+  nextAt,
+  scanning,
+  className,
+}: {
+  nextAt: number | null;
+  scanning: boolean;
+  className?: string;
+}) {
+  const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
+  useEffect(() => {
+    if (scanning || nextAt == null) return;
+    const id = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000);
+    return () => clearInterval(id);
+  }, [scanning, nextAt]);
+
+  if (scanning || nextAt == null) return null;
+
+  const remaining = Math.max(0, nextAt - now);
+  const m = Math.floor(remaining / 60);
+  const s = remaining % 60;
+  const label = remaining === 0 ? 'imminent' : `${m}:${s.toString().padStart(2, '0')}`;
+
+  return (
+    <span
+      className={clsx(
+        'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium',
+        'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300',
+        className,
+      )}
+      title="Time until next automatic scan"
+    >
+      <ClockIcon />
+      Next in {label}
+    </span>
+  );
+}
+
+function ClockIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
   );
 }
 

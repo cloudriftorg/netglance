@@ -43,11 +43,30 @@ func runScanHandler(st *store.Store) http.HandlerFunc {
 
 func scanStatusHandler(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		running := scanner.IsRunning()
 		resp := map[string]any{
-			"running": scanner.IsRunning(),
+			"running": running,
 		}
-		if last, err := st.GetLastScan(); err == nil && last != nil {
+		s := loadSettings(st)
+		last, _ := st.GetLastScan()
+		if last != nil {
 			resp["lastScan"] = last
+		}
+		// Next scan time, mirroring scanner.Run's interval logic so the UI
+		// countdown stays in lockstep with the backend scheduler.
+		if !running && s.ScanEnabled {
+			interval := s.ScanEverySeconds
+			if interval < 10 {
+				interval = 120
+			}
+			var base int64
+			if last != nil && last.EndedAt > 0 {
+				base = last.EndedAt
+			} else {
+				// No scan recorded yet — the loop will fire as soon as it can.
+				base = time.Now().Unix() - int64(interval)
+			}
+			resp["nextScanAt"] = base + int64(interval)
 		}
 		writeJSON(w, http.StatusOK, resp)
 	}

@@ -39,7 +39,8 @@ export const api = {
   deleteHost: (mac: string) => request<{ ok: boolean }>(`/api/hosts/${mac}`, { method: 'DELETE' }),
 
   runScan: () => request<{ status: string }>('/api/scan/run', { method: 'POST' }),
-  scanStatus: () => request<{ running: boolean; lastScan?: Scan }>('/api/scan/status'),
+  scanStatus: () =>
+    request<{ running: boolean; lastScan?: Scan; nextScanAt?: number }>('/api/scan/status'),
 
   getSettings: () => request<Settings>('/api/settings'),
   putSettings: (s: Settings) => request<{ ok: boolean }>('/api/settings', { method: 'PUT', body: JSON.stringify(s) }),
