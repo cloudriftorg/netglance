@@ -34,6 +34,7 @@ func runScanHandler(st *store.Store) http.HandlerFunc {
 			defer cancel()
 			_, _ = scanner.RunOnce(ctx, st, scanner.Settings{
 				Networks:         nets,
+				ScanEnabled:      true,
 				ScanEverySeconds: s.ScanEverySeconds,
 				OfflineAfter:     s.OfflineAfter,
 				PrimaryIface:     s.PrimaryIface,

@@ -65,9 +65,13 @@ export default function SettingsPage() {
         </button>
       </Section>
 
-      <Section title="Scan">
+      <Section title="Scan" desc="Periodic scan runs in the background; the manual button on the Hosts page works regardless.">
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={s.scanEnabled} onChange={(e) => update('scanEnabled', e.target.checked)} />
+          Enable automatic scanning
+        </label>
         <Field label="Scan interval (seconds)">
-          <input className="input" type="number" min={30} value={s.scanEverySeconds} onChange={(e) => update('scanEverySeconds', Number(e.target.value))} />
+          <input className="input" type="number" min={30} disabled={!s.scanEnabled} value={s.scanEverySeconds} onChange={(e) => update('scanEverySeconds', Number(e.target.value))} />
         </Field>
         <Field label="Mark offline after N missed scans">
           <input className="input" type="number" min={1} value={s.offlineAfter} onChange={(e) => update('offlineAfter', Number(e.target.value))} />
@@ -126,26 +130,6 @@ export default function SettingsPage() {
         </label>
       </Section>
 
-      <Section title="Gateway integration (optional)" desc="Pull MAC addresses for routed subnets directly from your router/firewall API.">
-        <Field label="Adapter">
-          <select className="input" value={s.gateway?.adapter ?? ''} onChange={(e) => update('gateway', { ...(s.gateway ?? blankGW()), adapter: e.target.value as 'opnsense' | '' })}>
-            <option value="">None</option>
-            <option value="opnsense">OPNsense</option>
-          </select>
-        </Field>
-        {s.gateway?.adapter === 'opnsense' && (
-          <>
-            <Field label="URL"><input className="input" value={s.gateway.url} onChange={(e) => update('gateway', { ...s.gateway!, url: e.target.value })} placeholder="https://192.168.1.1" /></Field>
-            <Field label="API Key"><input className="input" value={s.gateway.apiKey} onChange={(e) => update('gateway', { ...s.gateway!, apiKey: e.target.value })} /></Field>
-            <Field label="API Secret"><input className="input" type="password" value={s.gateway.apiSecret} onChange={(e) => update('gateway', { ...s.gateway!, apiSecret: e.target.value })} /></Field>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={s.gateway.verifyTLS} onChange={(e) => update('gateway', { ...s.gateway!, verifyTLS: e.target.checked })} />
-              Verify TLS certificate
-            </label>
-          </>
-        )}
-      </Section>
-
       <div className="flex items-center gap-3">
         <button onClick={save} disabled={saving} className="btn-primary">
           {saving ? 'Saving…' : 'Save settings'}
@@ -178,7 +162,4 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function blankSMTP() {
   return { host: '', port: 25, useTLS: false, useAuth: false, from: '', recipients: [] };
-}
-function blankGW() {
-  return { adapter: 'opnsense' as const, url: '', apiKey: '', apiSecret: '', verifyTLS: true };
 }

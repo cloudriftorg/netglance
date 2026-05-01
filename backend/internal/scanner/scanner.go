@@ -20,6 +20,7 @@ type Network struct {
 
 type Settings struct {
 	Networks         []Network
+	ScanEnabled      bool
 	ScanEverySeconds int
 	OfflineAfter     int
 	PrimaryIface     string
@@ -29,6 +30,7 @@ type Discovery struct {
 	IP          net.IP
 	MAC         string
 	Hostname    string
+	Vendor      string
 	NetworkName string
 	VLANID      *int
 }
@@ -41,9 +43,13 @@ func Run(ctx context.Context, st *store.Store, getSettings SettingsProvider) {
 		s := getSettings()
 		interval := time.Duration(s.ScanEverySeconds) * time.Second
 		if interval < 30*time.Second {
-			interval = 5 * time.Minute
+			interval = 2 * time.Minute
 		}
-		runOnce(ctx, st, s, logger)
+		if s.ScanEnabled {
+			runOnce(ctx, st, s, logger)
+		} else {
+			logger.Debug("auto scan disabled, skipping cycle")
+		}
 		select {
 		case <-ctx.Done():
 			return
@@ -67,7 +73,10 @@ func runOnce(ctx context.Context, st *store.Store, s Settings, logger *slog.Logg
 
 	for _, d := range all {
 		mac := strings.ToLower(d.MAC)
-		vendor := ouidb.Lookup(mac)
+		vendor := d.Vendor
+		if vendor == "" || vendor == "(Unknown)" {
+			vendor = ouidb.Lookup(mac)
+		}
 		if _, _, err := st.UpsertSeen(mac, d.IP.String(), d.NetworkName, d.VLANID, vendor, d.Hostname, now); err != nil {
 			logger.Warn("upsert", "mac", mac, "err", err)
 		}

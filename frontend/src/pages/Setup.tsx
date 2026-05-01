@@ -50,7 +50,7 @@ export default function Setup({ onDone }: { onDone: () => void }) {
         <button type="submit" disabled={busy} className="btn-primary w-full">
           {busy ? 'Creating…' : 'Create admin'}
         </button>
-        <p className="text-xs text-slate-500">After this you can configure networks, SMTP and gateway integration from Settings.</p>
+        <p className="text-xs text-slate-500">After this you can configure networks and SMTP from Settings.</p>
       </form>
     </div>
   );

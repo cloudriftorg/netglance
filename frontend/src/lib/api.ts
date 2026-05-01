@@ -97,14 +97,6 @@ export interface SMTPConfig {
   recipients: string[];
 }
 
-export interface GatewayConfig {
-  adapter: '' | 'opnsense';
-  url: string;
-  apiKey: string;
-  apiSecret: string;
-  verifyTLS: boolean;
-}
-
 export interface NotifyToggles {
   newHost: boolean;
   offline: boolean;
@@ -113,11 +105,11 @@ export interface NotifyToggles {
 
 export interface Settings {
   networks: NetworkConfig[];
+  scanEnabled: boolean;
   scanEverySeconds: number;
   offlineAfter: number;
   primaryIface: string;
   smtp?: SMTPConfig;
-  gateway?: GatewayConfig;
   notify: NotifyToggles;
 }
 

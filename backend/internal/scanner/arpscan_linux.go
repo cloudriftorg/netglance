@@ -43,7 +43,7 @@ func parseArpScanOutput(text string) []Discovery {
 		}
 		d := Discovery{IP: ip, MAC: mac}
 		if len(parts) >= 3 {
-			d.Hostname = strings.TrimSpace(parts[2])
+			d.Vendor = strings.TrimSpace(parts[2])
 		}
 		hosts = append(hosts, d)
 	}

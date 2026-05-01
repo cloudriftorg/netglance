@@ -85,9 +85,14 @@ export default function Hosts() {
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search MAC, IP, name…" className="input flex-1" />
-        <button onClick={runScan} disabled={scanning} className="btn-primary sm:w-auto">
-          {scanning && <Spinner className="mr-2 -ml-1" />}
-          {scanning ? 'Scanning…' : 'Scan now'}
+        <button
+          onClick={runScan}
+          disabled={scanning}
+          aria-label={scanning ? 'Scan in progress' : 'Scan now'}
+          title={scanning ? 'Scan in progress' : 'Scan now'}
+          className="btn-primary inline-flex h-9 w-9 items-center justify-center rounded-full p-0 sm:h-10 sm:w-10"
+        >
+          {scanning ? <Spinner className="h-4 w-4" /> : <RefreshIcon className="h-4 w-4" />}
         </button>
       </div>
 
@@ -183,6 +188,25 @@ export default function Hosts() {
         </div>
       )}
     </div>
+  );
+}
+
+function RefreshIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M21 12a9 9 0 1 1-3.36-7" />
+      <path d="M21 4v6h-6" />
+    </svg>
   );
 }
 
