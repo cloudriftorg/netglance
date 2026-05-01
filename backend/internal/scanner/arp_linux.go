@@ -2,41 +2,10 @@
 
 package scanner
 
-import (
-	"bufio"
-	"net"
-	"os"
-	"strings"
-)
+import "net"
 
-func readARPTable() map[string]string {
-	f, err := os.Open("/proc/net/arp")
-	if err != nil {
-		return nil
-	}
-	defer f.Close()
-	out := make(map[string]string)
-	scanner := bufio.NewScanner(f)
-	first := true
-	for scanner.Scan() {
-		if first {
-			first = false
-			continue
-		}
-		fields := strings.Fields(scanner.Text())
-		if len(fields) < 6 {
-			continue
-		}
-		ip := fields[0]
-		mac := strings.ToLower(fields[3])
-		if mac == "" || mac == "00:00:00:00:00:00" {
-			continue
-		}
-		out[ip] = mac
-	}
-	return out
-}
-
+// autoDetectCIDR returns the first non-loopback IPv4 interface as a /24 CIDR.
+// Used as a fallback when the user hasn't configured any networks yet.
 func autoDetectCIDR() string {
 	ifaces, err := net.Interfaces()
 	if err != nil {

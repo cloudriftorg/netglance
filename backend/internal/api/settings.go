@@ -35,7 +35,7 @@ func defaultSettings() settingsBundle {
 	return settingsBundle{
 		Networks:         []NetworkConfig{},
 		ScanEverySeconds: 300,
-		OfflineAfter:     3,
+		OfflineAfter:     1,
 		Notify:           NotifyToggles{NewHost: true, Offline: true, BackOnline: false},
 	}
 }

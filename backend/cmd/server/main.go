@@ -126,7 +126,7 @@ type netCfg struct {
 func loadScannerSettings(st *store.Store) scanner.Settings {
 	var nets []netCfg
 	_, _ = st.GetSetting("networks", &nets)
-	out := scanner.Settings{ScanEverySeconds: 300, OfflineAfter: 3}
+	out := scanner.Settings{ScanEverySeconds: 300, OfflineAfter: 1}
 	_, _ = st.GetSetting("scanEverySeconds", &out.ScanEverySeconds)
 	_, _ = st.GetSetting("offlineAfter", &out.OfflineAfter)
 	_, _ = st.GetSetting("primaryIface", &out.PrimaryIface)

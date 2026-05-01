@@ -75,7 +75,7 @@ func runOnce(ctx context.Context, st *store.Store, s Settings, logger *slog.Logg
 
 	threshold := s.OfflineAfter
 	if threshold <= 0 {
-		threshold = 3
+		threshold = 1
 	}
 	if _, err := st.MarkSweep(now, threshold); err != nil {
 		logger.Warn("mark sweep", "err", err)
@@ -88,6 +88,12 @@ func runOnce(ctx context.Context, st *store.Store, s Settings, logger *slog.Logg
 	return len(all)
 }
 
+// discover runs arp-scan on the host interface that owns each configured
+// network's CIDR. Same methodology as WatchYourLAN: ARP requests stay in the
+// local broadcast domain, returning real MAC addresses only for hosts that
+// reply. Hosts on routed VLANs require a sub-interface in that VLAN on the
+// container's host (network_mode: host) — without L2 presence the network is
+// silently skipped with a warning.
 func discover(ctx context.Context, s Settings, logger *slog.Logger) []Discovery {
 	if len(s.Networks) == 0 {
 		if cidr := autoDetectCIDR(); cidr != "" {
@@ -104,27 +110,22 @@ func discover(ctx context.Context, s Settings, logger *slog.Logger) []Discovery 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			found := scanNetwork(ctx, n, logger)
+			iface := findInterfaceForCIDR(n.CIDR)
+			if iface == "" {
+				logger.Warn("no host interface in CIDR — add a VLAN sub-interface to scan it",
+					"network", n.Name, "cidr", n.CIDR)
+				return
+			}
+			found := runArpScan(ctx, iface, logger)
+			for i := range found {
+				found[i].NetworkName = n.Name
+				found[i].VLANID = n.VLANID
+			}
 			mu.Lock()
 			all = append(all, found...)
 			mu.Unlock()
 		}()
 	}
 	wg.Wait()
-	if arpEntries := readARPTable(); len(arpEntries) > 0 {
-		for i, d := range all {
-			if d.MAC == "" {
-				if mac, ok := arpEntries[d.IP.String()]; ok {
-					all[i].MAC = mac
-				}
-			}
-		}
-	}
-	out := all[:0]
-	for _, d := range all {
-		if d.MAC != "" {
-			out = append(out, d)
-		}
-	}
-	return out
+	return all
 }

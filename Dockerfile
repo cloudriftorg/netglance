@@ -21,16 +21,17 @@ COPY --from=fe /app/dist ./internal/webui/dist
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath \
     -ldflags="-s -w -X main.version=${VERSION}" \
     -o /netglance ./cmd/server
-# Pre-create /data owned by the nonroot UID (65532) so a fresh named volume
-# inherits the right ownership for SQLite.
-RUN mkdir -p /out/data && chown 65532:65532 /out/data
 
-# Stage 3: runtime (distroless, nonroot)
-FROM gcr.io/distroless/static-debian12:nonroot
+# Stage 3: runtime — alpine, needed for the arp-scan binary used by the
+# scanner (same methodology as WatchYourLAN). Runs as root because arp-scan
+# requires CAP_NET_RAW; with `network_mode: host` the container already has
+# unrestricted host networking, so this isn't a meaningful privilege uplift
+# vs. the previous distroless image.
+FROM alpine:3.20
+RUN apk add --no-cache arp-scan ca-certificates tzdata \
+    && mkdir -p /data
 COPY --from=be /netglance /netglance
-COPY --from=be --chown=nonroot:nonroot /out/data /data
 EXPOSE 8080
-USER nonroot:nonroot
 VOLUME ["/data"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD ["/netglance", "healthcheck"]
