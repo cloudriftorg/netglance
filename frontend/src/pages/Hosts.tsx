@@ -1,17 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
-import { api, Host } from '../lib/api';
+import { api, Host, Scan } from '../lib/api';
 import { errMessage, useToast } from '../components/Toast';
 import Spinner from '../components/Spinner';
-
-function relativeTime(unix: number): string {
-  const diff = Math.max(0, Math.floor(Date.now() / 1000) - unix);
-  if (diff < 60) return `${diff}s ago`;
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return `${Math.floor(diff / 86400)}d ago`;
-}
 
 export default function Hosts() {
   const navigate = useNavigate();
@@ -21,7 +13,12 @@ export default function Hosts() {
   const [filter, setFilter] = useState<'all' | 'online' | 'offline'>('all');
   const [vlan, setVlan] = useState<number | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [lastScan, setLastScan] = useState<Scan | null>(null);
   const wasScanning = useState({ value: false })[0];
+  // Tracks whether the current/most-recent scan was kicked off by the user
+  // clicking "Scan now". The completion toast only fires for those — auto
+  // scans run silently in the background.
+  const manualScan = useState({ value: false })[0];
 
   async function load() {
     try {
@@ -40,8 +37,10 @@ export default function Hosts() {
     try {
       const s = await api.scanStatus();
       setScanning(s.running);
+      if (s.lastScan) setLastScan(s.lastScan);
       if (wasScanning.value && !s.running) {
-        toast.success('Scan complete');
+        if (manualScan.value) toast.success('Scan complete');
+        manualScan.value = false;
       }
       wasScanning.value = s.running;
     } catch {
@@ -71,8 +70,11 @@ export default function Hosts() {
       const r = await api.runScan();
       if (r.status === 'already-running') {
         toast.info('A scan is already running');
+        // Don't claim ownership of the in-flight scan — it's likely the auto
+        // one, and the completion toast would be misleading.
       } else {
         toast.info('Scan started');
+        manualScan.value = true;
       }
       setScanning(true);
       wasScanning.value = true;
@@ -105,6 +107,7 @@ export default function Hosts() {
         {vlans.map((v) => (
           <FilterChip key={v} active={vlan === v} onClick={() => setVlan(v)}>VLAN {v}</FilterChip>
         ))}
+        <LastScanBadge scan={lastScan} scanning={scanning} className="ml-auto" />
       </div>
 
       {hosts.length === 0 ? (
@@ -120,7 +123,6 @@ export default function Hosts() {
               <col className="hidden w-44 md:table-column" />
               <col className="hidden w-56 lg:table-column" />
               <col className="w-24" />
-              <col className="hidden w-28 sm:table-column" />
               <col className="w-28" />
             </colgroup>
             <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-400">
@@ -130,7 +132,6 @@ export default function Hosts() {
                 <th className="hidden px-3 py-2.5 text-left md:table-cell">MAC</th>
                 <th className="hidden px-3 py-2.5 text-left lg:table-cell">Vendor</th>
                 <th className="px-3 py-2.5 text-left">VLAN</th>
-                <th className="hidden px-3 py-2.5 text-left sm:table-cell">Last seen</th>
                 <th className="px-3 py-2.5 text-right">Status</th>
               </tr>
             </thead>
@@ -165,9 +166,6 @@ export default function Hosts() {
                       <span className="text-xs text-slate-400">—</span>
                     )}
                   </td>
-                  <td className="hidden truncate px-3 text-xs text-slate-500 sm:table-cell" title={new Date(h.lastSeen * 1000).toLocaleString()}>
-                    {relativeTime(h.lastSeen)}
-                  </td>
                   <td className="px-3 text-right">
                     <span
                       className={clsx(
@@ -188,6 +186,58 @@ export default function Hosts() {
         </div>
       )}
     </div>
+  );
+}
+
+function LastScanBadge({ scan, scanning, className }: { scan: Scan | null; scanning: boolean; className?: string }) {
+  const base = 'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium';
+  if (scanning) {
+    return (
+      <span
+        className={clsx(
+          base,
+          'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200',
+          className,
+        )}
+      >
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
+        Scanning…
+      </span>
+    );
+  }
+  if (!scan || !scan.endedAt) {
+    return (
+      <span
+        className={clsx(
+          base,
+          'border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400',
+          className,
+        )}
+      >
+        No scan yet
+      </span>
+    );
+  }
+  const d = new Date(scan.endedAt * 1000);
+  const formatted = d.toLocaleString(undefined, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  return (
+    <span
+      className={clsx(
+        base,
+        'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300',
+        className,
+      )}
+      title={`${scan.hostsFound} hosts`}
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+      Last scan {formatted}
+    </span>
   );
 }
 

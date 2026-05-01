@@ -36,8 +36,7 @@ func NewRouter(st *store.Store, webuiHandler http.Handler) http.Handler {
 			r.Get("/hosts/{mac}/uptime", uptimeHandler(st))
 
 			r.Post("/scan/run", runScanHandler(st))
-			r.Get("/scan/status", scanStatusHandler())
-			r.Get("/scans", listScansHandler(st))
+			r.Get("/scan/status", scanStatusHandler(st))
 
 			r.Get("/settings", getSettingsHandler(st))
 			r.Put("/settings", putSettingsHandler(st))

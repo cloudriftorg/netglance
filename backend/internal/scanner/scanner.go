@@ -45,7 +45,12 @@ func Run(ctx context.Context, st *store.Store, getSettings SettingsProvider) {
 			interval = 2 * time.Minute
 		}
 		if s.ScanEnabled {
-			runOnce(ctx, st, s, logger)
+			if TryAcquire() {
+				runOnce(ctx, st, s, logger)
+				Release()
+			} else {
+				logger.Warn("previous scan still in flight, skipping auto cycle")
+			}
 		} else {
 			logger.Debug("auto scan disabled, skipping cycle")
 		}
@@ -62,12 +67,7 @@ func RunOnce(ctx context.Context, st *store.Store, s Settings) (int, error) {
 }
 
 func runOnce(ctx context.Context, st *store.Store, s Settings, logger *slog.Logger) int {
-	scanID, err := st.StartScan("")
-	if err != nil {
-		logger.Error("start scan", "err", err)
-		return 0
-	}
-	now := time.Now().Unix()
+	startedAt := time.Now().Unix()
 	all := discover(ctx, s, logger)
 
 	for _, d := range all {
@@ -76,7 +76,7 @@ func runOnce(ctx context.Context, st *store.Store, s Settings, logger *slog.Logg
 		if vendor == "" || vendor == "(Unknown)" {
 			vendor = ouidb.Lookup(mac)
 		}
-		if _, _, err := st.UpsertSeen(mac, d.IP.String(), d.NetworkName, d.VLANID, vendor, d.Hostname, now); err != nil {
+		if _, _, err := st.UpsertSeen(mac, d.IP.String(), d.NetworkName, d.VLANID, vendor, d.Hostname, startedAt); err != nil {
 			logger.Warn("upsert", "mac", mac, "err", err)
 		}
 	}
@@ -85,12 +85,16 @@ func runOnce(ctx context.Context, st *store.Store, s Settings, logger *slog.Logg
 	if threshold <= 0 {
 		threshold = 1
 	}
-	if _, err := st.MarkSweep(now, threshold); err != nil {
+	if _, err := st.MarkSweep(startedAt, threshold); err != nil {
 		logger.Warn("mark sweep", "err", err)
 	}
 
-	if err := st.FinishScan(scanID, len(all), ""); err != nil {
-		logger.Warn("finish scan", "err", err)
+	if err := st.RecordScan(store.LastScan{
+		StartedAt:  startedAt,
+		EndedAt:    time.Now().Unix(),
+		HostsFound: len(all),
+	}); err != nil {
+		logger.Warn("record scan", "err", err)
 	}
 	logger.Info("scan complete", "found", len(all))
 	return len(all)
@@ -124,7 +128,7 @@ func discover(ctx context.Context, s Settings, logger *slog.Logger) []Discovery 
 					"network", n.Name, "cidr", n.CIDR)
 				return
 			}
-			found := runArpScan(ctx, iface, logger)
+			found := runArpScan(ctx, iface, n.CIDR, logger)
 			for i := range found {
 				found[i].NetworkName = n.Name
 				found[i].VLANID = n.VLANID

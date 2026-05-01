@@ -116,19 +116,3 @@ func uptimeHandler(st *store.Store) http.HandlerFunc {
 	}
 }
 
-func listScansHandler(st *store.Store) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		limit := 100
-		if v := r.URL.Query().Get("limit"); v != "" {
-			if n, err := strconv.Atoi(v); err == nil {
-				limit = n
-			}
-		}
-		scans, err := st.ListScans(limit)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		writeJSON(w, http.StatusOK, scans)
-	}
-}

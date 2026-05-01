@@ -40,15 +40,6 @@ CREATE TABLE IF NOT EXISTS host_events (
 );
 CREATE INDEX IF NOT EXISTS idx_events_host_ts ON host_events(host_id, ts DESC);
 
-CREATE TABLE IF NOT EXISTS scans (
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  started_at  INTEGER NOT NULL,
-  ended_at    INTEGER,
-  network_id  TEXT,
-  hosts_found INTEGER DEFAULT 0,
-  error       TEXT
-);
-
 CREATE TABLE IF NOT EXISTS settings (
   k TEXT PRIMARY KEY,
   v TEXT NOT NULL

@@ -38,8 +38,7 @@ export const api = {
   ) => request<Host>(`/api/hosts/${mac}`, { method: 'PATCH', body: JSON.stringify(body) }),
 
   runScan: () => request<{ status: string }>('/api/scan/run', { method: 'POST' }),
-  scanStatus: () => request<{ running: boolean }>('/api/scan/status'),
-  listScans: () => request<Scan[]>('/api/scans'),
+  scanStatus: () => request<{ running: boolean; lastScan?: Scan }>('/api/scan/status'),
 
   getSettings: () => request<Settings>('/api/settings'),
   putSettings: (s: Settings) => request<{ ok: boolean }>('/api/settings', { method: 'PUT', body: JSON.stringify(s) }),
@@ -72,10 +71,8 @@ export interface HostEvent {
 }
 
 export interface Scan {
-  id: number;
   startedAt: number;
-  endedAt?: number;
-  networkId?: string;
+  endedAt: number;
   hostsFound: number;
   error?: string;
 }

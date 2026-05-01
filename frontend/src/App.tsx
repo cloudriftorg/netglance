@@ -5,7 +5,6 @@ import Setup from './pages/Setup';
 import Login from './pages/Login';
 import Hosts from './pages/Hosts';
 import HostDetail from './pages/HostDetail';
-import Scans from './pages/Scans';
 import SettingsPage from './pages/Settings';
 import Layout from './components/Layout';
 
@@ -61,7 +60,6 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Hosts />} />
         <Route path="/h/:mac" element={<HostDetail />} />
-        <Route path="/scans" element={<Scans />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

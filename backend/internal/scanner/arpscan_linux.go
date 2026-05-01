@@ -9,16 +9,26 @@ import (
 	"net"
 	"os/exec"
 	"strings"
+	"time"
 )
 
-// runArpScan executes `arp-scan -glNx -I <iface>` and returns one Discovery
-// per responding host. Same flags as WatchYourLAN: -g plain output, -l use
-// the interface's own subnet, -N no DNS, -x tab-separated IP\tMAC\tVendor.
-func runArpScan(ctx context.Context, iface string, logger *slog.Logger) []Discovery {
-	cmd := exec.CommandContext(ctx, "arp-scan", "-glNx", "-I", iface)
+// arpScanTimeout caps how long a single arp-scan invocation can run. Without
+// this, a misconfigured interface (e.g. a Docker bridge with a /16 netmask
+// in dev) makes arp-scan hang for many minutes scanning 65k IPs, which in
+// turn pins the global inFlight lock and stalls the periodic scan loop.
+const arpScanTimeout = 60 * time.Second
+
+// runArpScan executes `arp-scan -gNx -I <iface> <cidr>` and returns one
+// Discovery per responding host. We pass the explicit CIDR (instead of the
+// `-l` localnet flag) so the scan scope matches exactly what the user
+// configured in netglance, regardless of the interface's own netmask.
+func runArpScan(parent context.Context, iface, cidr string, logger *slog.Logger) []Discovery {
+	ctx, cancel := context.WithTimeout(parent, arpScanTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "arp-scan", "-gNx", "-I", iface, cidr)
 	out, err := cmd.Output()
 	if err != nil {
-		logger.Warn("arp-scan failed", "iface", iface, "err", err)
+		logger.Warn("arp-scan failed", "iface", iface, "cidr", cidr, "err", err)
 		return nil
 	}
 	return parseArpScanOutput(string(out))
@@ -51,9 +61,10 @@ func parseArpScanOutput(text string) []Discovery {
 }
 
 // findInterfaceForCIDR returns the host's interface name that owns an IPv4
-// address inside the given CIDR. arp-scan needs an interface with L2 presence
-// in the target subnet — we resolve it from the configured CIDR so the user
-// keeps configuring networks by CIDR (as before) instead of by raw iface name.
+// address inside the given CIDR. arp-scan needs an interface with L2
+// presence in the target subnet — we resolve it from the configured CIDR
+// so the user keeps configuring networks by CIDR (as before) instead of
+// by raw iface name.
 func findInterfaceForCIDR(cidr string) string {
 	_, ipnet, err := net.ParseCIDR(cidr)
 	if err != nil {

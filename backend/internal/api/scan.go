@@ -3,18 +3,15 @@ package api
 import (
 	"context"
 	"net/http"
-	"sync/atomic"
 	"time"
 
 	"github.com/netglance/netglance/internal/scanner"
 	"github.com/netglance/netglance/internal/store"
 )
 
-var scanInFlight int32
-
 func runScanHandler(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !atomic.CompareAndSwapInt32(&scanInFlight, 0, 1) {
+		if !scanner.TryAcquire() {
 			writeJSON(w, http.StatusAccepted, map[string]any{"status": "already-running"})
 			return
 		}
@@ -29,7 +26,7 @@ func runScanHandler(st *store.Store) http.HandlerFunc {
 			nets = append(nets, scanner.Network{Name: n.Name, CIDR: n.CIDR, VLANID: v})
 		}
 		go func() {
-			defer atomic.StoreInt32(&scanInFlight, 0)
+			defer scanner.Release()
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 			defer cancel()
 			_, _ = scanner.RunOnce(ctx, st, scanner.Settings{
@@ -43,10 +40,14 @@ func runScanHandler(st *store.Store) http.HandlerFunc {
 	}
 }
 
-func scanStatusHandler() http.HandlerFunc {
+func scanStatusHandler(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]any{
-			"running": atomic.LoadInt32(&scanInFlight) == 1,
-		})
+		resp := map[string]any{
+			"running": scanner.IsRunning(),
+		}
+		if last, err := st.GetLastScan(); err == nil && last != nil {
+			resp["lastScan"] = last
+		}
+		writeJSON(w, http.StatusOK, resp)
 	}
 }
