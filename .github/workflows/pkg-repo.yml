@@ -138,6 +138,12 @@ jobs:
             echo "─── /netglance manifest ───"
             pkg create -M /tmp/netglance-manifest -r /tmp/pkgroot -o /tmp/pkgs
 
+            # plugins.mk validates PLUGIN_DEPENDS by querying the local
+            # pkg DB, so install the netglance pkg we just built before
+            # the plugin build runs. -f forces past arp-scan/user-creation
+            # idempotency hiccups.
+            pkg add -f /tmp/pkgs/netglance-*.pkg
+
             # ── os-netglance plugin pkg ─ via opnsense/plugins framework ──
             # Building the plugin pkg by hand left the OPNsense Plugin
             # Manager flagging it "misconfigured" (empty Categories,
