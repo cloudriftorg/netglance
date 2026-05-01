@@ -45,7 +45,7 @@ jobs:
           envs: "PKG_SIGN_KEY GITHUB_REF_NAME"
           copyback: true
           prepare: |
-            pkg install -y go git gmake bash arp-scan
+            pkg install -y go git gmake bash arp-scan jq
           run: |
             set -eu
             VERSION="${GITHUB_REF_NAME#v}"
@@ -87,11 +87,22 @@ jobs:
             NETGLANCE_DESC_JSON=$(json_escape "$NETGLANCE_DESC")
             OSNG_DESC_JSON=$(json_escape "$OSNG_DESC")
 
+            # Generate the files object for the netglance manifest by
+            # walking /tmp/pkgroot. pkg create -M *requires* an explicit
+            # files: list — the -r rootdir flag only sets the lookup root,
+            # it doesn't auto-discover. jq turns the find output into a
+            # JSON object mapping absolute install path -> "" (placeholder
+            # checksum, pkg fills it in).
+            FILES_JSON=$(cd /tmp/pkgroot && find . -type f \
+              | sed 's|^\./|/|' \
+              | jq -R -s 'split("\n") | map(select(length>0)) | map({(.): ""}) | add')
+
             cat > /tmp/netglance-manifest <<JSON
             {
               "name": "netglance",
               "version": "$VERSION",
               "origin": "net-mgmt/netglance",
+              "categories": ["net-mgmt"],
               "comment": "LAN host discovery and inventory daemon",
               "desc": "$NETGLANCE_DESC_JSON",
               "maintainer": "massimo.schiavo.p@gmail.com",
@@ -112,44 +123,36 @@ jobs:
                 "/usr/local/etc/netglance": "y",
                 "/var/db/netglance": "y"
               },
+              "files": $FILES_JSON,
               "scripts": {
                 "post-install": "pw groupadd -n netglance -g 950 2>/dev/null || true\npw useradd -n netglance -u 950 -g netglance -d /var/db/netglance -s /usr/sbin/nologin 2>/dev/null || true\nchown netglance:netglance /var/db/netglance\nchmod 750 /var/db/netglance\n"
               }
             }
             JSON
-            echo "─── netglance manifest ───"
-            cat /tmp/netglance-manifest
+            echo "─── netglance manifest (head) ───"
+            head -50 /tmp/netglance-manifest
             echo "─── /netglance manifest ───"
             pkg create -M /tmp/netglance-manifest -r /tmp/pkgroot -o /tmp/pkgs
 
-            # ── os-netglance plugin pkg ────────────────────────────────
-            mkdir -p /tmp/plugroot
-            cp -R deploy/opnsense-plugin/src/. /tmp/plugroot/
-            cat > /tmp/os-netglance-manifest <<JSON
-            {
-              "name": "os-netglance",
-              "version": "$VERSION",
-              "origin": "opnsense/os-netglance",
-              "comment": "OPNsense plugin for netglance",
-              "desc": "$OSNG_DESC_JSON",
-              "maintainer": "massimo.schiavo.p@gmail.com",
-              "www": "https://github.com/netglance/netglance",
-              "prefix": "/",
-              "arch": "FreeBSD:14:amd64",
-              "licenselogic": "single",
-              "licenses": ["MIT"],
-              "deps": {
-                "netglance": {
-                  "origin": "net-mgmt/netglance",
-                  "version": "$VERSION"
-                }
-              }
-            }
-            JSON
-            echo "─── os-netglance manifest ───"
-            cat /tmp/os-netglance-manifest
-            echo "─── /os-netglance manifest ───"
-            pkg create -M /tmp/os-netglance-manifest -r /tmp/plugroot -o /tmp/pkgs
+            # ── os-netglance plugin pkg ─ via opnsense/plugins framework ──
+            # Building the plugin pkg by hand left the OPNsense Plugin
+            # Manager flagging it "misconfigured" (empty Categories,
+            # missing annotations, no MVC files). Use the upstream
+            # plugins.mk make-package flow instead — same one official
+            # plugins (ntopng, wireguard, ...) go through, so the output
+            # has every annotation the firmware expects.
+            git clone --depth 1 https://github.com/opnsense/plugins /tmp/opnsense-plugins
+            mkdir -p /tmp/opnsense-plugins/net/netglance
+            cp -R deploy/opnsense-plugin/. /tmp/opnsense-plugins/net/netglance/
+            # Inject the rc tag's version (the committed Makefile holds
+            # the next-stable version, not the rc).
+            sed -i.bak "s/^PLUGIN_VERSION=.*/PLUGIN_VERSION=\t$VERSION/" \
+              /tmp/opnsense-plugins/net/netglance/Makefile
+            rm -f /tmp/opnsense-plugins/net/netglance/Makefile.bak
+            cd /tmp/opnsense-plugins/net/netglance
+            gmake package
+            cp work/pkg/*.pkg /tmp/pkgs/ 2>/dev/null || cp work/pkg/*.txz /tmp/pkgs/
+            cd $GITHUB_WORKSPACE
 
             # ── Build a signed pkg repo ────────────────────────────────
             mkdir -p /tmp/repo/FreeBSD:14:amd64/All
