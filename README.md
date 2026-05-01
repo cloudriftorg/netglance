@@ -62,9 +62,6 @@ have a sub-interface (with an IP) in each VLAN you want to cover. Once
 that is in place, add each CIDR + VLAN ID under Settings — the app
 automatically picks the right interface for each network.
 
-Step-by-step setup (Proxmox + Debian) in
-[`docs/multi-vlan-scanning.md`](docs/multi-vlan-scanning.md).
-
 ## Reverse proxy (Caddy / Traefik / nginx)
 
 Netglance honors `X-Forwarded-Proto: https` and sets the `Secure` flag on
@@ -113,7 +110,6 @@ make help      # full target list
 
 ## Documentation
 
-- [docs/multi-vlan-scanning.md](docs/multi-vlan-scanning.md) — VLAN sub-interface setup
 - [CHANGELOG.md](CHANGELOG.md) — release notes
 
 ## License
