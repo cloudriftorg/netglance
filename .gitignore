@@ -1,0 +1,25 @@
+# Build artifacts
+/netglance
+/netglance-darwin-arm64
+/netglance-darwin-amd64
+backend/netglance
+frontend/dist/
+frontend/node_modules/
+backend/internal/webui/dist/
+
+# Dev data
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Env
+.env
+.env.local

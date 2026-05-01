@@ -1,0 +1,20 @@
+# Default points at a locally-built image: run `docker build -t netglance:dev .`
+# (or `make docker`) once before `docker compose up -d`.
+#
+# To pull from GHCR instead, swap the image to:
+#   image: ghcr.io/<your-github-username>/netglance:latest
+
+services:
+  netglance:
+    image: netglance:dev
+    container_name: netglance
+    restart: unless-stopped
+    network_mode: host
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+    volumes:
+      - netglance_data:/data
+
+volumes:
+  netglance_data:

@@ -1,0 +1,2 @@
+ALTER TABLE hosts ADD COLUMN is_new INTEGER NOT NULL DEFAULT 0;
+CREATE INDEX IF NOT EXISTS idx_hosts_isnew ON hosts(is_new);

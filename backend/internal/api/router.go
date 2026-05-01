@@ -1,0 +1,69 @@
+package api
+
+import (
+	"encoding/json"
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+
+	"github.com/netglance/netglance/internal/auth"
+	"github.com/netglance/netglance/internal/store"
+)
+
+func NewRouter(st *store.Store, webuiHandler http.Handler) http.Handler {
+	r := chi.NewRouter()
+	r.Use(middleware.RequestID)
+	r.Use(middleware.RealIP)
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+
+	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]any{"status": "ok"})
+	})
+
+	r.Route("/api", func(r chi.Router) {
+		r.Get("/setup/status", setupStatusHandler(st))
+		r.Post("/setup", setupHandler(st))
+		r.Post("/login", loginHandler(st))
+		r.Post("/logout", logoutHandler(st))
+
+		r.Group(func(r chi.Router) {
+			r.Use(auth.RequireAuth(st))
+			r.Get("/me", meHandler(st))
+
+			r.Get("/hosts", listHostsHandler(st))
+			r.Get("/hosts/{mac}", getHostHandler(st))
+			r.Patch("/hosts/{mac}", updateHostHandler(st))
+			r.Get("/hosts/{mac}/uptime", uptimeHandler(st))
+
+			r.Post("/scan/run", runScanHandler(st))
+			r.Get("/scan/status", scanStatusHandler())
+			r.Get("/scans", listScansHandler(st))
+
+			r.Get("/settings", getSettingsHandler(st))
+			r.Put("/settings", putSettingsHandler(st))
+			r.Post("/settings/test-smtp", testSMTPHandler(st))
+		})
+	})
+
+	r.Handle("/*", webuiHandler)
+	return r
+}
+
+func setupStatusHandler(st *store.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		n, err := st.UserCount()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"setupComplete": n > 0})
+	}
+}
+
+func writeJSON(w http.ResponseWriter, status int, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(v)
+}
