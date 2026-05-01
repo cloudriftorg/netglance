@@ -155,6 +155,13 @@ jobs:
             mkdir -p /tmp/repo/FreeBSD:14:amd64/All
             cp /tmp/pkgs/*.pkg /tmp/repo/FreeBSD:14:amd64/All/
 
+            # OPNsense's curated pkg repo doesn't carry arp-scan, so a
+            # plain `pkg install os-netglance` would fail with "missing
+            # dependency: arp-scan". Re-bundle the arp-scan we already
+            # installed in `prepare` so our repo can satisfy its own
+            # closure without sending the user to a second pkg source.
+            pkg create -o /tmp/repo/FreeBSD:14:amd64/All -n arp-scan
+
             if [ -n "${PKG_SIGN_KEY:-}" ]; then
               echo "$PKG_SIGN_KEY" > /tmp/repo.key
               chmod 600 /tmp/repo.key
