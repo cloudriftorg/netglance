@@ -1,0 +1,38 @@
+name: Feature request
+description: Suggest a new feature or enhancement.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Concrete proposals get acted on faster than vague "would be nice"s.
+        The more grounded in your actual use case, the better.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the situation, not the solution. "I have N VLANs and..."
+      placeholder: I run netglance on a multi-VLAN setup and want to be alerted when...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like netglance to do?
+      description: Your proposed solution. Mockups, screenshots or examples are welcome.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've considered
+      description: Other tools, workarounds, or ways to solve the same problem.
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else?
+      description: Links to similar features in other projects, related issues, etc.

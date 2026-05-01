@@ -1,0 +1,95 @@
+name: Bug report
+description: Something is broken or behaving unexpectedly.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. Please fill in as much
+        of the form as you reasonably can — missing version/log info is
+        the #1 reason bugs end up unreproducible.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: A clear description of the problem.
+      placeholder: After enabling the plugin, scans never start. The log shows...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: How can someone else reproduce it?
+      description: Step-by-step. If possible, also describe a known-good baseline.
+      placeholder: |
+        1. Fresh OPNsense 25.1
+        2. pkg install os-netglance
+        3. Set scan interfaces to LAN, save
+        4. Open Netglance UI — no hosts ever appear
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install
+    attributes:
+      label: How did you install netglance?
+      options:
+        - OPNsense plugin (os-netglance)
+        - FreeBSD pkg (netglance, no plugin)
+        - Linux native (systemd unit)
+        - Docker
+        - Built from source
+    validations:
+      required: true
+
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin / netglance version
+      description: From the OPNsense Plugin Manager, or `netglance --version`.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: opnsense-version
+    attributes:
+      label: OPNsense version (if applicable)
+      description: From System → Firmware → Status, or `opnsense-version`.
+      placeholder: "25.1.4"
+
+  - type: input
+    id: host-os
+    attributes:
+      label: Host OS (if not OPNsense)
+      placeholder: "Debian 12 / FreeBSD 14.1 / Docker on Ubuntu 22.04"
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: |
+        Last ~50 lines of `/var/log/netglance.log` (FreeBSD/OPNsense),
+        `journalctl -u netglance -n 100` (Linux native), or
+        `docker logs netglance --tail 100` (Docker).
+        Strip anything sensitive (IPs, MACs from networks not under your control).
+      render: shell
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-flight checks
+      options:
+        - label: I'm running the latest tagged release.
+          required: false
+        - label: I searched existing issues and didn't find a duplicate.
+          required: true
