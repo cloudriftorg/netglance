@@ -3,14 +3,14 @@
 help:
 	@echo "netglance — make targets"
 	@echo ""
-	@echo "  make local        Build & run the full app in Docker (http://localhost:8080)"
+	@echo "  make local        Build & run the full app in Docker (http://localhost:8473)"
 	@echo "  make local-stop   Stop the local container"
 	@echo "  make logs         Tail logs of the local container"
 	@echo "  make reset        Wipe the local DB volume (next run = fresh setup)"
 	@echo ""
 	@echo "  make ui           Frontend dev server with HMR; proxies /api to a remote"
-	@echo "                    backend (default: http://localhost:8080). Override:"
-	@echo "                    make ui BACKEND=http://other:8080"
+	@echo "                    backend (default: http://localhost:8473). Override:"
+	@echo "                    make ui BACKEND=http://other:8473"
 	@echo ""
 	@echo "  make build        Static binary at ./netglance (frontend embedded)"
 	@echo "  make docker       Build the Docker image as netglance:dev"
@@ -25,7 +25,7 @@ help:
 # `network_mode: host` (see compose.yml).
 local:
 	docker compose -f compose.dev.yml up -d --build
-	@echo "→ http://localhost:8080"
+	@echo "→ http://localhost:8473"
 
 local-stop:
 	docker compose -f compose.dev.yml down
@@ -37,7 +37,7 @@ reset:
 	docker compose -f compose.dev.yml down -v
 
 # ── Frontend HMR against a remote backend ────────────────────────────
-BACKEND ?= http://localhost:8080
+BACKEND ?= http://localhost:8473
 ui:
 	@echo "→ http://localhost:5173  (proxying /api → $(BACKEND))"
 	cd frontend && VITE_BACKEND_URL=$(BACKEND) npm run dev

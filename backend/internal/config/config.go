@@ -9,7 +9,7 @@ type Config struct {
 
 func Load() Config {
 	return Config{
-		Bind:    envOr("NETGLANCE_BIND", ":8080"),
+		Bind:    envOr("NETGLANCE_BIND", ":8473"),
 		DataDir: envOr("NETGLANCE_DATA_DIR", defaultDataDir()),
 	}
 }

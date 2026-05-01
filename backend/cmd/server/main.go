@@ -98,8 +98,8 @@ func main() {
 // dials its own /healthz endpoint and exits 0/1 accordingly.
 func runHealthcheck() int {
 	addr := os.Getenv("NETGLANCE_BIND")
-	if addr == "" || addr == ":8080" {
-		addr = "127.0.0.1:8080"
+	if addr == "" || addr == ":8473" {
+		addr = "127.0.0.1:8473"
 	} else if addr[0] == ':' {
 		addr = "127.0.0.1" + addr
 	}

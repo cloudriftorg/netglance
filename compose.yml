@@ -5,6 +5,8 @@
 # stack to send raw ARP requests. With a Docker bridge it would only see
 # the bridge subnet, not your LAN/VLANs.
 #
+# The app listens on port 8473 by default. Override with NETGLANCE_BIND=:PORT.
+#
 # For local development on macOS use `make local` (see compose.dev.yml).
 
 services:

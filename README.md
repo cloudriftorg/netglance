@@ -52,7 +52,7 @@ volumes:
 docker compose up -d
 ```
 
-Open `http://<host>:8080` → setup wizard (admin + networks + SMTP) → done.
+Open `http://<host>:8473` → setup wizard (admin + networks + SMTP) → done.
 
 ### Multi-VLAN scanning
 
@@ -69,7 +69,7 @@ session cookies accordingly.
 
 ```caddyfile
 netglance.example.com {
-    reverse_proxy <netglance-host>:8080
+    reverse_proxy <netglance-host>:8473
 }
 ```
 
@@ -78,7 +78,7 @@ netglance.example.com {
 Only Docker is required.
 
 ```bash
-make local         # build + run the whole app in Docker, http://localhost:8080
+make local         # build + run the whole app in Docker, http://localhost:8473
 make logs          # tail logs
 make local-stop    # stop
 make reset         # wipe the local DB volume (next run = fresh setup)
@@ -96,7 +96,7 @@ running backend:
 
 ```bash
 make ui                                  # default backend (override via BACKEND=...)
-make ui BACKEND=http://localhost:8080    # against a local netglance
+make ui BACKEND=http://localhost:8473    # against a local netglance
 ```
 
 ### Other useful targets

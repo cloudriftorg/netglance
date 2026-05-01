@@ -31,7 +31,7 @@ FROM alpine:3.20
 RUN apk add --no-cache arp-scan ca-certificates tzdata \
     && mkdir -p /data
 COPY --from=be /netglance /netglance
-EXPOSE 8080
+EXPOSE 8473
 VOLUME ["/data"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD ["/netglance", "healthcheck"]
