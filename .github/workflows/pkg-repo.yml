@@ -154,7 +154,9 @@ jobs:
               /tmp/opnsense-plugins/net/netglance/Makefile
             rm -f /tmp/opnsense-plugins/net/netglance/Makefile.bak
             cd /tmp/opnsense-plugins/net/netglance
-            gmake package
+            # plugins.mk uses BSD-make .include syntax — invoke the
+            # platform's bmake (just `make` on FreeBSD), not gmake.
+            make package
             cp work/pkg/*.pkg /tmp/pkgs/ 2>/dev/null || cp work/pkg/*.txz /tmp/pkgs/
             cd $GITHUB_WORKSPACE
 
