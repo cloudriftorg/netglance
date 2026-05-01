@@ -6,6 +6,40 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Removed
+- Scans history page and `GET /api/scans` endpoint. The Hosts page already
+  surfaces a "Last scan" badge sourced from a single record; an
+  append-only scan log was unused dead weight.
+- `scans` table replaced by a single `lastScan` JSON value in the
+  `settings` table. No more zombie rows from crashed scans, no
+  unbounded growth, no need for periodic pruning.
+- `StartScan` / `FinishScan` / `LastFinishedScan` store API replaced by
+  `RecordScan(LastScan)` / `GetLastScan()`.
+
+### Fixed
+- Auto-scan would silently stall once an arp-scan invocation hung — the
+  global in-flight lock would never release. Two changes:
+  - arp-scan now receives the explicit configured CIDR instead of the
+    `-l` localnet flag, so it scans exactly the user's subnet (not the
+    full /16 a Docker bridge advertises in dev).
+  - Each arp-scan invocation runs under a 60s timeout context.
+- Auto and manual scans now share a single in-flight flag (hoisted from
+  `api/scan.go` into `scanner/inflight.go`). `/api/scan/status` reflects
+  either source, so the Hosts-page spinner lights up during periodic
+  scans too.
+- The "Scan complete" toast no longer fires for periodic scans — only
+  user-initiated scans surface a notification.
+
+### Added
+- `ScanEnabled` toggle in Settings (default on). Disables the periodic
+  scanner; manual scans from the UI still work.
+- `docs/multi-vlan-scanning.md` — VLAN sub-interface setup guide
+  (Proxmox + Debian).
+- `compose.dev.yml` + `make local` — single-command build & run for
+  local development without Go/Node on the host.
+- `make ui` — frontend dev server with HMR proxying `/api` to a remote
+  backend (`BACKEND=…` to override target).
+
 ### Changed
 - Scanner rewritten to use `arp-scan` (same methodology as WatchYourLAN)
   in place of TCP probe + `/proc/net/arp` enrichment. Real MACs come
@@ -19,17 +53,7 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Runtime image switched from distroless to Alpine to bundle `arp-scan`.
 - Setup wizard wording: removed reference to gateway integration.
 
-### Added
-- `ScanEnabled` toggle in Settings (default on). Disables the periodic
-  scanner; manual scans from the UI still work.
-- `docs/multi-vlan-scanning.md` — VLAN sub-interface setup guide
-  (Proxmox + Debian).
-- `compose.dev.yml` + `make local` — single-command build & run for
-  local development without Go/Node on the host.
-- `make ui` — frontend dev server with HMR proxying `/api` to a remote
-  backend (`BACKEND=…` to override target).
-
-### Removed
+### Removed (earlier in unreleased cycle)
 - Gateway / OPNsense integration scaffolding (config struct, settings
   field, UI section). Was schema-only and never wired to a real client;
   multi-VLAN sub-interface support obsoletes the original motivation.
