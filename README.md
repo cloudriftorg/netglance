@@ -59,6 +59,10 @@ make docker     # build immagine docker locale
 make test       # go test ./...
 ```
 
+## Documentazione
+
+- [docs/PLAN.md](docs/PLAN.md) — piano originale di progettazione (architettura, schema DB, API, decisioni di design). Riferimento utile per estensioni future.
+
 ## Licenza
 
 MIT — vedi [LICENSE](LICENSE).
