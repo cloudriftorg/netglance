@@ -44,7 +44,14 @@ export const api = {
   getSettings: () => request<Settings>('/api/settings'),
   putSettings: (s: Settings) => request<{ ok: boolean }>('/api/settings', { method: 'PUT', body: JSON.stringify(s) }),
   testSMTP: () => request<{ ok: boolean }>('/api/settings/test-smtp', { method: 'POST' }),
+
+  listInterfaces: () => request<NetInterface[]>('/api/system/interfaces'),
 };
+
+export interface NetInterface {
+  name: string;
+  addresses: string[];
+}
 
 export interface Host {
   id: number;
@@ -105,6 +112,7 @@ export interface Settings {
   networks: NetworkConfig[];
   scanEnabled: boolean;
   scanEverySeconds: number;
+  scanIfaces: string[];
   offlineAfter: number;
   smtp?: SMTPConfig;
   notify: NotifyToggles;

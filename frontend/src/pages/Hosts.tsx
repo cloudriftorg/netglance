@@ -157,7 +157,8 @@ export default function Hosts() {
         </button>
       </div>
 
-      <div>
+      {/* Mobile-only: badge on its own row, inheriting parent's space-y gap */}
+      <div className="sm:hidden">
         <LastScanBadge scan={lastScan} scanning={scanning} />
       </div>
 
@@ -170,6 +171,8 @@ export default function Hosts() {
         {vlans.map((v) => (
           <FilterChip key={v} active={vlan === v} onClick={() => setVlan(v)}>VLAN {v}</FilterChip>
         ))}
+        {/* Desktop-only: badge right-aligned on the filter row */}
+        <LastScanBadge scan={lastScan} scanning={scanning} className="ml-auto hidden sm:inline-flex" />
       </div>
 
       {hosts.length === 0 ? (

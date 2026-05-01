@@ -1,14 +1,18 @@
-import { useEffect, useState } from 'react';
-import { api, Settings as SettingsT, NetworkConfig } from '../lib/api';
+import { useEffect, useRef, useState } from 'react';
+import { api, Settings as SettingsT, NetworkConfig, NetInterface } from '../lib/api';
 import { errMessage, useToast } from '../components/Toast';
 
 export default function SettingsPage() {
   const toast = useToast();
   const [s, setS] = useState<SettingsT | null>(null);
   const [saving, setSaving] = useState(false);
+  const [ifaces, setIfaces] = useState<NetInterface[]>([]);
 
   useEffect(() => {
     api.getSettings().then(setS).catch((e) => toast.error(errMessage(e, 'Load failed')));
+    api.listInterfaces().then(setIfaces).catch(() => {
+      /* non-fatal: combo just shows the saved value */
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -57,9 +61,45 @@ export default function SettingsPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Section
+          title="Scan"
+          desc="Periodic scan runs in the background; the manual button on the Hosts page works regardless."
+        >
+          <IfacePicker
+            value={s.scanIfaces ?? []}
+            ifaces={ifaces}
+            onChange={(v) => update('scanIfaces', v)}
+          />
+          <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-3">
+            <label className="flex items-center gap-2 pt-6 text-sm sm:pt-7">
+              <input
+                type="checkbox"
+                checked={s.scanEnabled}
+                onChange={(e) => update('scanEnabled', e.target.checked)}
+              />
+              Automatic
+            </label>
+            <NumberField
+              label="Interval (s)"
+              min={10}
+              value={s.scanEverySeconds}
+              disabled={!s.scanEnabled}
+              onChange={(v) => update('scanEverySeconds', v)}
+            />
+            <NumberField
+              label="Offline after"
+              min={1}
+              value={s.offlineAfter}
+              onChange={(v) => update('offlineAfter', v)}
+            />
+          </div>
+          <p className="text-xs text-slate-500">
+            Minimum interval 10s. Lower values flood the network with ARP broadcasts and cause online/offline flapping. "Offline after" is the number of consecutive missed scans before a host is marked offline.
+          </p>
+        </Section>
+
+        <Section
           title="Networks"
           desc="One row per CIDR you want scanned. VLAN ID is optional and only affects the badge."
-          className="lg:col-span-2"
         >
           {s.networks.length === 0 && (
             <p className="text-sm text-slate-500">No networks configured. Add one below.</p>
@@ -107,64 +147,8 @@ export default function SettingsPage() {
         </Section>
 
         <Section
-          title="Scan"
-          desc="Periodic scan runs in the background; the manual button on the Hosts page works regardless."
-        >
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={s.scanEnabled}
-              onChange={(e) => update('scanEnabled', e.target.checked)}
-            />
-            Enable automatic scanning
-          </label>
-          <NumberField
-            label="Scan interval (seconds)"
-            min={10}
-            value={s.scanEverySeconds}
-            disabled={!s.scanEnabled}
-            onChange={(v) => update('scanEverySeconds', v)}
-            help="Minimum 10s. Lower values flood the network with ARP broadcasts and cause online/offline flapping."
-          />
-          <NumberField
-            label="Mark offline after N missed scans"
-            min={1}
-            value={s.offlineAfter}
-            onChange={(v) => update('offlineAfter', v)}
-          />
-        </Section>
-
-        <Section title="Notifications">
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={s.notify.newHost}
-              onChange={(e) => update('notify', { ...s.notify, newHost: e.target.checked })}
-            />
-            New host detected
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={s.notify.offline}
-              onChange={(e) => update('notify', { ...s.notify, offline: e.target.checked })}
-            />
-            Watched host went offline
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={s.notify.backOnline}
-              onChange={(e) => update('notify', { ...s.notify, backOnline: e.target.checked })}
-            />
-            Watched host came back online
-          </label>
-        </Section>
-
-        <Section
           title="SMTP"
           desc="Plain (no auth/no TLS) works for an internal LAN relay. STARTTLS or implicit TLS for external providers."
-          className="lg:col-span-2"
         >
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <Field label="Host">
@@ -240,7 +224,145 @@ export default function SettingsPage() {
             Send test email
           </button>
         </Section>
+
+        <Section title="Notifications">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={s.notify.newHost}
+              onChange={(e) => update('notify', { ...s.notify, newHost: e.target.checked })}
+            />
+            New host detected
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={s.notify.offline}
+              onChange={(e) => update('notify', { ...s.notify, offline: e.target.checked })}
+            />
+            Watched host went offline
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={s.notify.backOnline}
+              onChange={(e) => update('notify', { ...s.notify, backOnline: e.target.checked })}
+            />
+            Watched host came back online
+          </label>
+        </Section>
       </div>
+    </div>
+  );
+}
+
+function IfacePicker({
+  value,
+  ifaces,
+  onChange,
+}: {
+  value: string[];
+  ifaces: NetInterface[];
+  onChange: (v: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('mousedown', onDocClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  function toggle(name: string) {
+    if (value.includes(name)) onChange(value.filter((n) => n !== name));
+    else onChange([...value, name]);
+  }
+
+  // Show any saved iface that's no longer active so the user can drop it.
+  const stale = value.filter((n) => !ifaces.some((x) => x.name === n));
+
+  let summary: string;
+  if (value.length === 0) summary = 'All interfaces (auto)';
+  else if (value.length <= 3) summary = value.join(', ');
+  else summary = `${value.length} selected`;
+
+  return (
+    <div className="space-y-1.5">
+      <span className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+        Interfaces to scan
+      </span>
+      <div ref={ref} className="relative">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="input flex w-full items-center justify-between text-left"
+          aria-haspopup="listbox"
+          aria-expanded={open}
+        >
+          <span className={value.length === 0 ? 'text-slate-500' : ''}>{summary}</span>
+          <svg className="ml-2 h-4 w-4 shrink-0 text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.08 1.04l-4.25 4.39a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+          </svg>
+        </button>
+        {open && (
+          <div
+            className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900"
+            role="listbox"
+          >
+            {ifaces.length === 0 && stale.length === 0 && (
+              <p className="px-3 py-2 text-xs text-slate-500">No active interfaces detected.</p>
+            )}
+            {ifaces.map((ifc) => {
+              const on = value.includes(ifc.name);
+              return (
+                <label
+                  key={ifc.name}
+                  className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  <input
+                    type="checkbox"
+                    checked={on}
+                    onChange={() => toggle(ifc.name)}
+                  />
+                  <span className="font-medium">{ifc.name}</span>
+                  {ifc.addresses.length > 0 && (
+                    <span className="ml-auto truncate text-xs text-slate-500">{ifc.addresses[0]}</span>
+                  )}
+                </label>
+              );
+            })}
+            {stale.length > 0 && (
+              <div className="border-t border-slate-200 dark:border-slate-700">
+                {stale.map((name) => (
+                  <label
+                    key={name}
+                    className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
+                    title="Saved interface — not currently active. Uncheck to remove."
+                  >
+                    <input type="checkbox" checked onChange={() => toggle(name)} />
+                    <span className="font-medium text-amber-700 dark:text-amber-300">{name}</span>
+                    <span className="ml-auto text-xs text-amber-700/70 dark:text-amber-300/70">inactive</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      <p className="text-xs text-slate-500">
+        Leave empty to scan every active interface with an IPv4 address.
+      </p>
     </div>
   );
 }

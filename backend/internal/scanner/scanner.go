@@ -20,6 +20,7 @@ type Network struct {
 
 type Settings struct {
 	Networks         []Network
+	ScanIfaces       []string // optional allow-list of interface names; empty = scan all
 	ScanEnabled      bool
 	ScanEverySeconds int
 	OfflineAfter     int
@@ -108,32 +109,32 @@ func runOnce(ctx context.Context, st *store.Store, s Settings, logger *slog.Logg
 // reply. Hosts on routed VLANs require a sub-interface in that VLAN on the
 // container's host (network_mode: host) — without L2 presence the network is
 // silently skipped with a warning.
+//
+// ScanIfaces (when non-empty) acts as an allow-list: only ifaces in the list
+// are used. When empty, every active IPv4-bearing interface is scanned, so
+// multi-NIC / multi-VLAN hosts work out of the box. Configured Networks are
+// still honoured for naming/VLAN labelling and are skipped if their detected
+// iface isn't in the active allow-list.
 func discover(ctx context.Context, s Settings, logger *slog.Logger) []Discovery {
-	if len(s.Networks) == 0 {
-		if cidr := autoDetectCIDR(); cidr != "" {
-			s.Networks = []Network{{Name: "auto", CIDR: cidr}}
-		}
+	allow, explicit := ifaceAllowSet(s.ScanIfaces)
+	targets := buildScanTargets(s, allow, explicit, logger)
+	if len(targets) == 0 {
+		return nil
 	}
 	var (
 		mu  sync.Mutex
 		all []Discovery
 		wg  sync.WaitGroup
 	)
-	for _, n := range s.Networks {
-		n := n
+	for _, t := range targets {
+		t := t
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			iface := findInterfaceForCIDR(n.CIDR)
-			if iface == "" {
-				logger.Warn("no host interface in CIDR — add a VLAN sub-interface to scan it",
-					"network", n.Name, "cidr", n.CIDR)
-				return
-			}
-			found := runArpScan(ctx, iface, n.CIDR, logger)
+			found := runArpScan(ctx, t.iface, t.cidr, logger)
 			for i := range found {
-				found[i].NetworkName = n.Name
-				found[i].VLANID = n.VLANID
+				found[i].NetworkName = t.name
+				found[i].VLANID = t.vlan
 			}
 			mu.Lock()
 			all = append(all, found...)
@@ -142,4 +143,85 @@ func discover(ctx context.Context, s Settings, logger *slog.Logger) []Discovery 
 	}
 	wg.Wait()
 	return all
+}
+
+type scanTarget struct {
+	iface string
+	cidr  string
+	name  string
+	vlan  *int
+}
+
+// ifaceAllowSet returns (allowSet, explicit). explicit=true means the user
+// picked ifaces; explicit=false means the set was auto-built from active
+// IPv4 ifaces (so configured Networks with non-listed ifaces are still
+// honoured rather than being filtered out as "not allowed").
+func ifaceAllowSet(list []string) (map[string]bool, bool) {
+	if len(list) > 0 {
+		m := make(map[string]bool, len(list))
+		for _, n := range list {
+			if n != "" {
+				m[n] = true
+			}
+		}
+		if len(m) > 0 {
+			return m, true
+		}
+	}
+	// Default: all active interfaces with at least one usable IPv4 address.
+	m := map[string]bool{}
+	for _, name := range activeIPv4Ifaces() {
+		m[name] = true
+	}
+	return m, false
+}
+
+func buildScanTargets(s Settings, allow map[string]bool, explicit bool, logger *slog.Logger) []scanTarget {
+	var out []scanTarget
+	used := map[string]bool{} // iface|cidr keys to avoid duplicates
+
+	for _, n := range s.Networks {
+		iface := findInterfaceForCIDR(n.CIDR)
+		if iface == "" {
+			logger.Warn("no host interface in CIDR — add a VLAN sub-interface to scan it",
+				"network", n.Name, "cidr", n.CIDR)
+			continue
+		}
+		if explicit && !allow[iface] {
+			logger.Debug("skipping network: iface not in scan allow-list",
+				"network", n.Name, "cidr", n.CIDR, "iface", iface)
+			continue
+		}
+		key := iface + "|" + n.CIDR
+		if used[key] {
+			continue
+		}
+		used[key] = true
+		out = append(out, scanTarget{iface: iface, cidr: n.CIDR, name: n.Name, vlan: n.VLANID})
+	}
+
+	// For every allowed iface that wasn't covered by a configured Network,
+	// scan its primary IPv4 network. Tag using a matching Network (by CIDR)
+	// when one exists, else use the iface name as the label.
+	for name := range allow {
+		ifaceCidrs := ifaceIPv4Networks(name)
+		for _, c := range ifaceCidrs {
+			key := name + "|" + c
+			if used[key] {
+				continue
+			}
+			used[key] = true
+			label := name
+			var vlan *int
+			for _, n := range s.Networks {
+				if n.CIDR == c {
+					label = n.Name
+					vlan = n.VLANID
+					break
+				}
+			}
+			out = append(out, scanTarget{iface: name, cidr: c, name: label, vlan: vlan})
+		}
+	}
+	return out
 }

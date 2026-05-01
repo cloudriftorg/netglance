@@ -39,6 +39,8 @@ func NewRouter(st *store.Store, webuiHandler http.Handler) http.Handler {
 			r.Post("/scan/run", runScanHandler(st))
 			r.Get("/scan/status", scanStatusHandler(st))
 
+			r.Get("/system/interfaces", listInterfacesHandler())
+
 			r.Get("/settings", getSettingsHandler(st))
 			r.Put("/settings", putSettingsHandler(st))
 			r.Post("/settings/test-smtp", testSMTPHandler(st))
