@@ -41,9 +41,7 @@ designed to run on the firewall itself — most users install it as an
 
 ```sh
 ssh root@<opnsense>
-cat > /usr/local/etc/pkg/repos/netglance.conf <<'EOF'
-netglance: { url: "https://netglance.github.io/netglance/${ABI}", signature_type: "none", enabled: yes }
-EOF
+fetch -o /usr/local/etc/pkg/repos/netglance.conf https://netglance.github.io/netglance/netglance.conf
 pkg update && pkg install -y os-netglance
 ```
 

@@ -167,6 +167,19 @@ jobs:
               pkg repo /tmp/repo/FreeBSD:14:amd64
             fi
 
+            # Drop a ready-to-fetch repo config alongside the metadata so
+            # users can `fetch -o /usr/local/etc/pkg/repos/netglance.conf
+            # https://netglance.github.io/netglance/netglance.conf`
+            # instead of crafting the file locally — friendlier than a
+            # heredoc that breaks under csh.
+            cat > /tmp/repo/netglance.conf <<CONF
+            netglance: {
+              url: "https://netglance.github.io/netglance/\${ABI}",
+              signature_type: "none",
+              enabled: yes
+            }
+            CONF
+
             # Copy the built repo into the workspace so the host job can
             # pick it up after the VM exits (vmactions copyback transfers
             # the workspace, not /tmp).
