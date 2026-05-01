@@ -97,10 +97,12 @@ jobs:
             arch: FreeBSD:14:amd64
             licenselogic: single
             licenses: [MIT]
-            deps:
-              arp-scan:
-                origin: net-mgmt/arp-scan
+            deps {
+              arp-scan {
+                origin: "net-mgmt/arp-scan"
                 version: "*"
+              }
+            }
             users: [netglance]
             groups: [netglance]
             files:
@@ -136,10 +138,12 @@ jobs:
             arch: FreeBSD:14:amd64
             licenselogic: single
             licenses: [MIT]
-            deps:
-              netglance:
-                origin: net-mgmt/netglance
+            deps {
+              netglance {
+                origin: "net-mgmt/netglance"
                 version: "$VERSION"
+              }
+            }
             MAN
             echo "─── os-netglance manifest ───"
             cat /tmp/os-netglance-manifest
