@@ -74,10 +74,11 @@ func (s *Store) UpsertSeen(mac, ip, networkName string, vlanID *int, vendor, hos
 			return nil, false, err
 		}
 		id, _ := res.LastInsertId()
+		// Only the 'new' event is recorded on first sight — a "Came online"
+		// at the same instant would be redundant ("First seen" already
+		// implies the host is online). 'online' events are reserved for
+		// later offline→online transitions.
 		if _, err := tx.Exec(`INSERT INTO host_events(host_id, ts, kind, ip) VALUES(?, ?, 'new', ?)`, id, ts, ip); err != nil {
-			return nil, false, err
-		}
-		if _, err := tx.Exec(`INSERT INTO host_events(host_id, ts, kind, ip) VALUES(?, ?, 'online', ?)`, id, ts, ip); err != nil {
 			return nil, false, err
 		}
 		if err := tx.Commit(); err != nil {
@@ -242,6 +243,16 @@ func (s *Store) ListHosts(f HostFilter) ([]*Host, error) {
 		out = append(out, &h)
 	}
 	return out, nil
+}
+
+// DeleteHost removes a host (and via FK cascade, all its host_events).
+// The next scan that finds the same MAC re-inserts the host as brand-new
+// (is_new = 1), so deletion is the supported way to reset a host to its
+// NEW state.
+func (s *Store) DeleteHost(mac string) error {
+	mac = strings.ToLower(mac)
+	_, err := s.db.Exec(`DELETE FROM hosts WHERE mac = ?`, mac)
+	return err
 }
 
 func (s *Store) UpdateHostMeta(mac, customName, customVendor string, notifyOffline, isNew bool) error {

@@ -14,6 +14,21 @@ export default function Hosts() {
   const [vlan, setVlan] = useState<number | null>(null);
   const [scanning, setScanning] = useState(false);
   const [lastScan, setLastScan] = useState<Scan | null>(null);
+  const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' } | null>(loadSortPref);
+
+  // Persist sort preference across reloads. `null` (unsorted) clears the
+  // saved key so a fresh load really does come up unsorted.
+  useEffect(() => {
+    try {
+      if (sort) {
+        localStorage.setItem('netglance.hosts.sort', JSON.stringify(sort));
+      } else {
+        localStorage.removeItem('netglance.hosts.sort');
+      }
+    } catch {
+      /* storage disabled / quota — silent */
+    }
+  }, [sort]);
   const wasScanning = useState({ value: false })[0];
   // Tracks whether the current/most-recent scan was kicked off by the user
   // clicking "Scan now". The completion toast only fires for those — auto
@@ -64,6 +79,50 @@ export default function Hosts() {
     hosts.forEach((h) => h.vlanId != null && set.add(h.vlanId));
     return Array.from(set).sort((a, b) => a - b);
   }, [hosts]);
+
+  const sortedHosts = useMemo(() => {
+    if (!sort) return hosts;
+    const arr = hosts.slice();
+    arr.sort((a, b) => compareHosts(a, b, sort.key));
+    if (sort.dir === 'desc') arr.reverse();
+    return arr;
+  }, [hosts, sort]);
+
+  // Three-state cycle on a header: unsorted/other → asc → desc → unsorted.
+  function clickSort(key: SortKey) {
+    setSort((cur) => {
+      if (!cur || cur.key !== key) return { key, dir: 'asc' };
+      if (cur.dir === 'asc') return { key, dir: 'desc' };
+      return null;
+    });
+  }
+
+  async function toggleNew(h: Host) {
+    const next = !h.isNew;
+    try {
+      await api.updateHost(h.mac, {
+        customName: h.customName || '',
+        customVendor: h.customVendor || '',
+        notifyOffline: h.notifyOffline,
+        isNew: next,
+      });
+      setHosts((cur) => cur.map((x) => (x.mac === h.mac ? { ...x, isNew: next } : x)));
+    } catch (err) {
+      toast.error(errMessage(err, 'Update failed'));
+    }
+  }
+
+  async function deleteHost(h: Host) {
+    const label = h.customName || h.ip;
+    if (!confirm(`Delete host "${label}"? It will reappear flagged as NEW the next time it answers a scan.`)) return;
+    try {
+      await api.deleteHost(h.mac);
+      setHosts((cur) => cur.filter((x) => x.mac !== h.mac));
+      toast.success('Host deleted');
+    } catch (err) {
+      toast.error(errMessage(err, 'Delete failed'));
+    }
+  }
 
   async function runScan() {
     try {
@@ -118,33 +177,38 @@ export default function Hosts() {
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <table className="w-full table-fixed text-sm">
             <colgroup>
-              <col />
-              <col className="w-36" />
-              <col className="hidden w-44 md:table-column" />
-              <col className="hidden w-56 lg:table-column" />
+              <col className="w-52" />
+              <col className="w-32" />
+              <col className="w-20" />
+              <col className="hidden w-40 md:table-column" />
+              <col className="hidden w-60 lg:table-column" />
               <col className="w-24" />
-              <col className="w-28" />
+              <col className="w-16" />
+              <col className="w-16" />
             </colgroup>
             <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-400">
               <tr>
-                <th className="px-3 py-2.5 text-left">Name</th>
-                <th className="px-3 py-2.5 text-left">IP</th>
-                <th className="hidden px-3 py-2.5 text-left md:table-cell">MAC</th>
-                <th className="hidden px-3 py-2.5 text-left lg:table-cell">Vendor</th>
-                <th className="px-3 py-2.5 text-left">VLAN</th>
-                <th className="px-3 py-2.5 text-right">Status</th>
+                <SortableTh label="Name" sortKey="name" sort={sort} onClick={clickSort} />
+                <SortableTh label="IP" sortKey="ip" sort={sort} onClick={clickSort} />
+                <SortableTh label="VLAN" sortKey="vlan" sort={sort} onClick={clickSort} />
+                <SortableTh label="MAC" sortKey="mac" sort={sort} onClick={clickSort} className="hidden md:table-cell" />
+                <SortableTh label="Vendor" sortKey="vendor" sort={sort} onClick={clickSort} className="hidden lg:table-cell" />
+                <SortableTh label="Status" sortKey="status" sort={sort} onClick={clickSort} />
+                <SortableTh label="New" sortKey="new" sort={sort} onClick={clickSort} align="center" />
+                <th className="px-3 py-2.5"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {hosts.map((h) => (
-                <tr
-                  key={h.mac}
-                  onClick={() => navigate(`/h/${h.mac}`)}
-                  className="h-12 cursor-pointer align-middle transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
-                >
-                  <td className="truncate px-3 font-medium">
+              {sortedHosts.map((h) => (
+                <tr key={h.mac} className="h-12 align-middle transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                  <td className="px-3 font-medium">
                     <div className="flex items-center gap-2">
-                      <span className="truncate">{h.customName || h.hostname || h.ip}</span>
+                      <button
+                        onClick={() => navigate(`/h/${h.mac}`)}
+                        className="min-w-0 truncate text-left underline-offset-2 hover:text-brand-600 hover:underline dark:hover:text-brand-400"
+                      >
+                        {h.customName || h.ip}
+                      </button>
                       {h.isNew && (
                         <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800 dark:bg-amber-500/20 dark:text-amber-200">
                           NEW
@@ -153,10 +217,6 @@ export default function Hosts() {
                     </div>
                   </td>
                   <td className="truncate px-3 font-mono text-xs text-slate-700 dark:text-slate-300">{h.ip}</td>
-                  <td className="hidden truncate px-3 font-mono text-xs text-slate-700 dark:text-slate-300 md:table-cell">{h.mac}</td>
-                  <td className="hidden truncate px-3 text-slate-600 dark:text-slate-400 lg:table-cell" title={h.customVendor || h.vendor || ''}>
-                    {h.customVendor || h.vendor || '—'}
-                  </td>
                   <td className="px-3">
                     {h.vlanId != null ? (
                       <span className="inline-block rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700 dark:bg-brand-700/20 dark:text-brand-50">
@@ -166,7 +226,11 @@ export default function Hosts() {
                       <span className="text-xs text-slate-400">—</span>
                     )}
                   </td>
-                  <td className="px-3 text-right">
+                  <td className="hidden truncate px-3 font-mono text-xs text-slate-700 dark:text-slate-300 md:table-cell">{h.mac}</td>
+                  <td className="hidden truncate px-3 text-slate-600 dark:text-slate-400 lg:table-cell" title={h.customVendor || h.vendor || ''}>
+                    {h.customVendor || h.vendor || '—'}
+                  </td>
+                  <td className="px-3 text-left">
                     <span
                       className={clsx(
                         'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium',
@@ -178,6 +242,28 @@ export default function Hosts() {
                       <span className={clsx('h-1.5 w-1.5 rounded-full', h.online ? 'bg-emerald-500' : 'bg-slate-400')} />
                       {h.online ? 'Online' : 'Offline'}
                     </span>
+                  </td>
+                  <td className="px-3">
+                    <div className="flex justify-center">
+                      <Toggle
+                        on={h.isNew}
+                        onChange={() => toggleNew(h)}
+                        title={h.isNew ? 'Acknowledge (clear NEW flag)' : 'Flag as NEW'}
+                        ariaLabel={h.isNew ? 'Clear NEW flag' : 'Flag as NEW'}
+                      />
+                    </div>
+                  </td>
+                  <td className="px-3">
+                    <div className="flex justify-end">
+                      <button
+                        onClick={() => deleteHost(h)}
+                        title="Delete host"
+                        aria-label="Delete host"
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 transition hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-500/20 dark:hover:text-red-300"
+                      >
+                        <TrashIcon />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -238,6 +324,172 @@ function LastScanBadge({ scan, scanning, className }: { scan: Scan | null; scann
       <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
       Last scan {formatted}
     </span>
+  );
+}
+
+type SortKey = 'name' | 'ip' | 'vlan' | 'mac' | 'vendor' | 'status' | 'new';
+const SORT_KEYS: SortKey[] = ['name', 'ip', 'vlan', 'mac', 'vendor', 'status', 'new'];
+
+function loadSortPref(): { key: SortKey; dir: 'asc' | 'desc' } | null {
+  try {
+    const raw = localStorage.getItem('netglance.hosts.sort');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { key?: string; dir?: string };
+    if (!SORT_KEYS.includes(parsed.key as SortKey)) return null;
+    if (parsed.dir !== 'asc' && parsed.dir !== 'desc') return null;
+    return { key: parsed.key as SortKey, dir: parsed.dir };
+  } catch {
+    return null;
+  }
+}
+
+function nameOf(h: Host): string {
+  return (h.customName || h.ip).toLowerCase();
+}
+
+function vendorOf(h: Host): string {
+  return (h.customVendor || h.vendor || '').toLowerCase();
+}
+
+// ipToInt maps an IPv4 string to an integer for proper numeric ordering
+// (so 192.168.1.10 sorts after 192.168.1.9, not lexicographically before).
+function ipToInt(ip: string): number {
+  const p = ip.split('.');
+  if (p.length !== 4) return Number.MAX_SAFE_INTEGER;
+  let n = 0;
+  for (const part of p) {
+    const v = Number(part);
+    if (!Number.isFinite(v)) return Number.MAX_SAFE_INTEGER;
+    n = n * 256 + v;
+  }
+  return n;
+}
+
+function compareHosts(a: Host, b: Host, key: SortKey): number {
+  switch (key) {
+    case 'name':
+      return nameOf(a).localeCompare(nameOf(b));
+    case 'ip':
+      return ipToInt(a.ip) - ipToInt(b.ip);
+    case 'vlan': {
+      const av = a.vlanId ?? Number.MAX_SAFE_INTEGER;
+      const bv = b.vlanId ?? Number.MAX_SAFE_INTEGER;
+      return av - bv;
+    }
+    case 'mac':
+      return a.mac.localeCompare(b.mac);
+    case 'vendor':
+      return vendorOf(a).localeCompare(vendorOf(b));
+    case 'status':
+      return Number(b.online) - Number(a.online); // online first
+    case 'new':
+      return Number(b.isNew) - Number(a.isNew); // NEW first
+    default:
+      return 0;
+  }
+}
+
+function SortableTh({
+  label,
+  sortKey,
+  sort,
+  onClick,
+  align,
+  className,
+}: {
+  label: string;
+  sortKey: SortKey;
+  sort: { key: SortKey; dir: 'asc' | 'desc' } | null;
+  onClick: (k: SortKey) => void;
+  align?: 'left' | 'center' | 'right';
+  className?: string;
+}) {
+  const active = sort?.key === sortKey;
+  const justify = align === 'center' ? 'justify-center' : align === 'right' ? 'justify-end' : 'justify-start';
+  return (
+    <th className={clsx('px-3 py-2.5 text-left', className)}>
+      <button
+        onClick={() => onClick(sortKey)}
+        className={clsx(
+          'inline-flex w-full items-center gap-1 text-xs font-semibold uppercase tracking-wide transition-colors hover:text-slate-900 dark:hover:text-slate-200',
+          justify,
+          active ? 'text-slate-900 dark:text-slate-100' : 'text-slate-500 dark:text-slate-400',
+        )}
+      >
+        <span>{label}</span>
+        <SortIndicator dir={active ? sort!.dir : null} />
+      </button>
+    </th>
+  );
+}
+
+function SortIndicator({ dir }: { dir: 'asc' | 'desc' | null }) {
+  if (!dir) {
+    return (
+      <svg className="h-3 w-3 opacity-30" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
+        <path d="M3 5l3-3 3 3z" />
+        <path d="M3 7l3 3 3-3z" />
+      </svg>
+    );
+  }
+  return (
+    <svg className="h-3 w-3" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
+      {dir === 'asc' ? <path d="M3 7l3-4 3 4z" /> : <path d="M3 5l3 4 3-4z" />}
+    </svg>
+  );
+}
+
+function Toggle({
+  on,
+  onChange,
+  title,
+  ariaLabel,
+}: {
+  on: boolean;
+  onChange: () => void;
+  title?: string;
+  ariaLabel?: string;
+}) {
+  return (
+    <button
+      role="switch"
+      aria-checked={on}
+      aria-label={ariaLabel}
+      title={title}
+      onClick={onChange}
+      className={clsx(
+        'relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900',
+        on ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-700',
+      )}
+    >
+      <span
+        className={clsx(
+          'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform',
+          on ? 'translate-x-[18px]' : 'translate-x-0.5',
+        )}
+      />
+    </button>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg
+      className="h-4 w-4"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M3 6h18" />
+      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+    </svg>
   );
 }
 

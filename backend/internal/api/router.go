@@ -33,6 +33,7 @@ func NewRouter(st *store.Store, webuiHandler http.Handler) http.Handler {
 			r.Get("/hosts", listHostsHandler(st))
 			r.Get("/hosts/{mac}", getHostHandler(st))
 			r.Patch("/hosts/{mac}", updateHostHandler(st))
+			r.Delete("/hosts/{mac}", deleteHostHandler(st))
 			r.Get("/hosts/{mac}/uptime", uptimeHandler(st))
 
 			r.Post("/scan/run", runScanHandler(st))

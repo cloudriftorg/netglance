@@ -41,7 +41,9 @@ func Run(ctx context.Context, st *store.Store, getSettings SettingsProvider) {
 	for {
 		s := getSettings()
 		interval := time.Duration(s.ScanEverySeconds) * time.Second
-		if interval < 30*time.Second {
+		// Floor at 10s. Anything lower turns into a broadcast-ARP storm and
+		// dramatically increases false-offline flapping at OfflineAfter=1.
+		if interval < 10*time.Second {
 			interval = 2 * time.Minute
 		}
 		if s.ScanEnabled {
