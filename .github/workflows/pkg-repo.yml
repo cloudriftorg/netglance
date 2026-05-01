@@ -74,50 +74,49 @@ jobs:
 
             mkdir -p /tmp/pkgs
 
-            # pkg's UCL parser doesn't accept literal newlines in single-line
-            # quoted strings, so flatten the multi-line pkg-descr into one
-            # line for the desc: field. The full text is still readable in
-            # the source repo.
+            # Flatten the multi-line pkg-descr into one line. JSON strings
+            # don't allow literal newlines and we'll emit JSON for the
+            # manifest below — UCL accepts JSON as a strict subset, and
+            # using JSON dodges every YAML/UCL ambiguity we hit before
+            # (deps block syntax, files block syntax, indentation, etc.).
             NETGLANCE_DESC=$(tr '\n' ' ' < deploy/freebsd-port/pkg-descr | sed 's/  */ /g; s/ $//')
             OSNG_DESC=$(tr '\n' ' ' < deploy/opnsense-plugin/pkg-descr | sed 's/  */ /g; s/ $//')
 
-            # Strip the workflow's leading indent before pkg sees the
-            # manifest — UCL is whitespace-tolerant in theory but gets
-            # confused by deeply-indented blocks in practice. Also avoid
-            # inline { ... } objects in deps for the same reason.
-            sed 's/^            //' > /tmp/netglance-manifest <<MAN
-            name: netglance
-            version: "$VERSION"
-            origin: net-mgmt/netglance
-            comment: "LAN host discovery and inventory daemon"
-            desc: "$NETGLANCE_DESC"
-            maintainer: massimo.schiavo.p@gmail.com
-            www: https://github.com/netglance/netglance
-            prefix: /usr/local
-            arch: FreeBSD:14:amd64
-            licenselogic: single
-            licenses: [MIT]
-            deps {
-              arp-scan {
-                origin: "net-mgmt/arp-scan"
-                version: "*"
+            # Escape any " or \ in descriptions for safe JSON embedding.
+            json_escape() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'; }
+            NETGLANCE_DESC_JSON=$(json_escape "$NETGLANCE_DESC")
+            OSNG_DESC_JSON=$(json_escape "$OSNG_DESC")
+
+            cat > /tmp/netglance-manifest <<JSON
+            {
+              "name": "netglance",
+              "version": "$VERSION",
+              "origin": "net-mgmt/netglance",
+              "comment": "LAN host discovery and inventory daemon",
+              "desc": "$NETGLANCE_DESC_JSON",
+              "maintainer": "massimo.schiavo.p@gmail.com",
+              "www": "https://github.com/netglance/netglance",
+              "prefix": "/usr/local",
+              "arch": "FreeBSD:14:amd64",
+              "licenselogic": "single",
+              "licenses": ["MIT"],
+              "deps": {
+                "arp-scan": {
+                  "origin": "net-mgmt/arp-scan",
+                  "version": "*"
+                }
+              },
+              "users": ["netglance"],
+              "groups": ["netglance"],
+              "directories": {
+                "/usr/local/etc/netglance": "y",
+                "/var/db/netglance": "y"
+              },
+              "scripts": {
+                "post-install": "pw groupadd -n netglance -g 950 2>/dev/null || true\npw useradd -n netglance -u 950 -g netglance -d /var/db/netglance -s /usr/sbin/nologin 2>/dev/null || true\nchown netglance:netglance /var/db/netglance\nchmod 750 /var/db/netglance\n"
               }
             }
-            users: [netglance]
-            groups: [netglance]
-            files:
-              /usr/local/sbin/netglance: "-"
-              /usr/local/etc/rc.d/netglance: "-"
-            directories:
-              /usr/local/etc/netglance: y
-              /var/db/netglance: y
-            scripts:
-              post-install: |
-                pw groupadd -n netglance -g 950 2>/dev/null || true
-                pw useradd -n netglance -u 950 -g netglance -d /var/db/netglance -s /usr/sbin/nologin 2>/dev/null || true
-                chown netglance:netglance /var/db/netglance
-                chmod 750 /var/db/netglance
-            MAN
+            JSON
             echo "─── netglance manifest ───"
             cat /tmp/netglance-manifest
             echo "─── /netglance manifest ───"
@@ -126,25 +125,27 @@ jobs:
             # ── os-netglance plugin pkg ────────────────────────────────
             mkdir -p /tmp/plugroot
             cp -R deploy/opnsense-plugin/src/. /tmp/plugroot/
-            sed 's/^            //' > /tmp/os-netglance-manifest <<MAN
-            name: os-netglance
-            version: "$VERSION"
-            origin: opnsense/os-netglance
-            comment: "OPNsense plugin for netglance"
-            desc: "$OSNG_DESC"
-            maintainer: massimo.schiavo.p@gmail.com
-            www: https://github.com/netglance/netglance
-            prefix: /
-            arch: FreeBSD:14:amd64
-            licenselogic: single
-            licenses: [MIT]
-            deps {
-              netglance {
-                origin: "net-mgmt/netglance"
-                version: "$VERSION"
+            cat > /tmp/os-netglance-manifest <<JSON
+            {
+              "name": "os-netglance",
+              "version": "$VERSION",
+              "origin": "opnsense/os-netglance",
+              "comment": "OPNsense plugin for netglance",
+              "desc": "$OSNG_DESC_JSON",
+              "maintainer": "massimo.schiavo.p@gmail.com",
+              "www": "https://github.com/netglance/netglance",
+              "prefix": "/",
+              "arch": "FreeBSD:14:amd64",
+              "licenselogic": "single",
+              "licenses": ["MIT"],
+              "deps": {
+                "netglance": {
+                  "origin": "net-mgmt/netglance",
+                  "version": "$VERSION"
+                }
               }
             }
-            MAN
+            JSON
             echo "─── os-netglance manifest ───"
             cat /tmp/os-netglance-manifest
             echo "─── /os-netglance manifest ───"
