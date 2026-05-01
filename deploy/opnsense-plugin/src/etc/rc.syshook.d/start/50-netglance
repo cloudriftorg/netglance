@@ -1,0 +1,7 @@
+#!/bin/sh
+
+# Start netglance at boot if enabled in the OPNsense config.
+# Render the env template first so the daemon picks up the latest config.
+
+/usr/local/sbin/configctl -d 5 template reload OPNsense/Netglance >/dev/null 2>&1
+/usr/local/sbin/configctl -d 5 netglance start >/dev/null 2>&1

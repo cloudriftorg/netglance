@@ -1,0 +1,5 @@
+<menu>
+    <Services>
+        <Netglance VisibleName="Netglance" cssClass="fa fa-search fa-fw" url="/ui/netglance/general/index" />
+    </Services>
+</menu>

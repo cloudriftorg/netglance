@@ -1,0 +1,59 @@
+<form>
+    <field>
+        <id>general.enabled</id>
+        <label>Enable netglance</label>
+        <type>checkbox</type>
+    </field>
+    <field>
+        <id>general.bindAddress</id>
+        <label>Listen address</label>
+        <type>text</type>
+        <help>IP the daemon listens on. Use 0.0.0.0 to listen on all interfaces.</help>
+    </field>
+    <field>
+        <id>general.httpPort</id>
+        <label>Listen port</label>
+        <type>text</type>
+        <help>HTTP port for the netglance web UI. Default: 8473.</help>
+    </field>
+    <field>
+        <id>general.scanIfaces</id>
+        <label>Scan interfaces</label>
+        <type>select_multiple</type>
+        <style>tokenize</style>
+        <help>OPNsense interfaces to send ARP probes from. Pick the interfaces facing the LANs you want inventoried.</help>
+    </field>
+    <field>
+        <id>general.scanInterval</id>
+        <label>Scan interval (seconds)</label>
+        <type>text</type>
+        <help>How often the daemon scans the configured networks. Min 30s.</help>
+    </field>
+    <field>
+        <type>header</type>
+        <label>Networks</label>
+    </field>
+    <field>
+        <id>general.networks</id>
+        <type>grid</type>
+        <label>Networks to inventory</label>
+        <help>One row per CIDR. VLAN ID is informational (drives the badge in the netglance UI). Name is optional.</help>
+        <columns>
+            <column>
+                <type>text</type>
+                <label>CIDR</label>
+                <name>cidr</name>
+            </column>
+            <column>
+                <type>text</type>
+                <label>VLAN</label>
+                <name>vlanId</name>
+            </column>
+            <column>
+                <type>text</type>
+                <label>Name</label>
+                <name>name</name>
+            </column>
+        </columns>
+    </field>
+</form>

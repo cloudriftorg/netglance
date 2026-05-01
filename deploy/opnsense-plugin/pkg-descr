@@ -1,0 +1,10 @@
+netglance is a LAN host discovery and inventory daemon. It scans the
+configured CIDRs over ARP, keeps a SQLite history of every device, and
+ships a mobile-friendly web UI on a dedicated port (default 8473).
+
+This plugin integrates the netglance daemon (installed by the netglance
+package) into OPNsense: a Services > Netglance tab to enable/disable the
+service, pick listen port and bind address, select scan interfaces, and
+declare the networks (CIDR + optional VLAN) to inventory. The web UI
+itself remains accessible directly on the configured port and is
+reachable from any device on the LAN, including mobile.

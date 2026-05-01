@@ -1,0 +1,10 @@
+<acl>
+    <page-services-netglance>
+        <name>Services: Netglance</name>
+        <descr>Allow access to the Services: Netglance page</descr>
+        <patterns>
+            <pattern>ui/netglance/*</pattern>
+            <pattern>api/netglance/*</pattern>
+        </patterns>
+    </page-services-netglance>
+</acl>

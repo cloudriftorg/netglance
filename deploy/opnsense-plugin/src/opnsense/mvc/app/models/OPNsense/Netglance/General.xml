@@ -1,0 +1,50 @@
+<model>
+    <mount>//OPNsense/netglance/general</mount>
+    <description>netglance configuration</description>
+    <version>0.0.1</version>
+    <items>
+        <enabled type="BooleanField">
+            <Default>0</Default>
+            <Required>Y</Required>
+        </enabled>
+        <bindAddress type="TextField">
+            <Default>0.0.0.0</Default>
+            <Required>Y</Required>
+            <ValidationMessage>Bind address must be an IPv4 or IPv6 address (use 0.0.0.0 for all)</ValidationMessage>
+            <Mask>/^([0-9]{1,3}\.){3}[0-9]{1,3}$|^\[?[0-9a-fA-F:]+\]?$/u</Mask>
+        </bindAddress>
+        <httpPort type="PortField">
+            <Default>8473</Default>
+            <Required>Y</Required>
+        </httpPort>
+        <scanIfaces type="InterfaceField">
+            <Required>N</Required>
+            <Multiple>Y</Multiple>
+            <AllowDynamic>Y</AllowDynamic>
+        </scanIfaces>
+        <scanInterval type="IntegerField">
+            <Default>120</Default>
+            <Required>Y</Required>
+            <MinimumValue>30</MinimumValue>
+            <MaximumValue>86400</MaximumValue>
+            <ValidationMessage>Interval must be between 30 and 86400 seconds</ValidationMessage>
+        </scanInterval>
+        <networks type="ArrayField">
+            <cidr type="NetworkField">
+                <Required>Y</Required>
+                <NetMaskRequired>Y</NetMaskRequired>
+                <AddressFamilies>ipv4</AddressFamilies>
+            </cidr>
+            <vlanId type="IntegerField">
+                <Default>0</Default>
+                <MinimumValue>0</MinimumValue>
+                <MaximumValue>4094</MaximumValue>
+            </vlanId>
+            <name type="TextField">
+                <Required>N</Required>
+                <Mask>/^[a-zA-Z0-9_\- ]{0,32}$/u</Mask>
+                <ValidationMessage>Name may contain letters, digits, dashes, underscores and spaces (max 32 chars)</ValidationMessage>
+            </name>
+        </networks>
+    </items>
+</model>
