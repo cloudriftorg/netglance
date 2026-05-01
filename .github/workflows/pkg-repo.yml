@@ -173,12 +173,10 @@ jobs:
             mkdir -p $GITHUB_WORKSPACE/pkg-repo
             cp -R /tmp/repo/. $GITHUB_WORKSPACE/pkg-repo/
 
-      - name: Upload repo artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: pkg-repo
-          path: pkg-repo
-          retention-days: 30
+      # Skipped: actions/upload-artifact rejects ':' in paths
+      # (https://github.com/actions/upload-artifact/issues/325) and the
+      # repo layout requires FreeBSD:14:amd64/ verbatim. Deploy directly
+      # to gh-pages instead — that's the canonical destination anyway.
 
       - name: Deploy to gh-pages
         if: startsWith(github.ref, 'refs/tags/v')
