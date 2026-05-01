@@ -3,7 +3,11 @@
 backend/netglance
 frontend/dist/
 frontend/node_modules/
-backend/internal/webui/dist/
+# Frontend build artifacts copied here by `make build` / Dockerfile.
+# Keep the placeholder index.html in git so //go:embed has files to scan
+# in CI (go vet / go test) when no frontend build has run.
+backend/internal/webui/dist/*
+!backend/internal/webui/dist/index.html
 
 # Dev data
 data/
