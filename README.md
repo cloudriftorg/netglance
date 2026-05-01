@@ -29,7 +29,22 @@ lightweight, multi-VLAN-aware and usable from a phone (installable PWA).
 - 🐳 Single Alpine container, ~30 MB
 - ⚙️ No env vars for app logic — everything is configured via a first-run wizard
 
-## Quick start
+## Install
+
+Netglance ships in three flavors — pick the one that matches your setup:
+
+| Target | Guide |
+|---|---|
+| Docker (anywhere with a Linux host) | [docs/install/docker.md](docs/install/docker.md) |
+| Linux native (systemd) | [docs/install/linux-native.md](docs/install/linux-native.md) |
+| FreeBSD native | [docs/install/freebsd-native.md](docs/install/freebsd-native.md) |
+| **OPNsense plugin (`os-netglance`)** | [docs/install/opnsense-plugin.md](docs/install/opnsense-plugin.md) |
+
+The OPNsense plugin is the recommended path if you already run OPNsense —
+it gives you a `Services → Netglance` configuration tab and pulls future
+updates through the standard Plugin Manager.
+
+## Quick start (Docker)
 
 `network_mode: host` is required: `arp-scan` sends raw ARP requests and
 needs the host's real network stack, not a Docker bridge.
