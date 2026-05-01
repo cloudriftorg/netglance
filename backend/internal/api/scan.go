@@ -52,8 +52,10 @@ func scanStatusHandler(st *store.Store) http.HandlerFunc {
 		if last != nil {
 			resp["lastScan"] = last
 		}
-		// Next scan time, mirroring scanner.Run's interval logic so the UI
-		// countdown stays in lockstep with the backend scheduler.
+		// Seconds remaining until the next automatic scan, mirroring
+		// scanner.Run's interval logic. Computed against the server's clock
+		// (and sent as a delta, not a timestamp) so a client whose clock is
+		// skewed renders the same countdown as the scheduler observes.
 		if !running && s.ScanEnabled {
 			interval := s.ScanEverySeconds
 			if interval < 10 {
@@ -63,10 +65,13 @@ func scanStatusHandler(st *store.Store) http.HandlerFunc {
 			if last != nil && last.EndedAt > 0 {
 				base = last.EndedAt
 			} else {
-				// No scan recorded yet — the loop will fire as soon as it can.
 				base = time.Now().Unix() - int64(interval)
 			}
-			resp["nextScanAt"] = base + int64(interval)
+			remaining := base + int64(interval) - time.Now().Unix()
+			if remaining < 0 {
+				remaining = 0
+			}
+			resp["nextScanInSeconds"] = remaining
 		}
 		writeJSON(w, http.StatusOK, resp)
 	}

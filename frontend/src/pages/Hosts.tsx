@@ -16,7 +16,10 @@ export default function Hosts() {
   const [vlan, setVlan] = useState<number | null>(null);
   const [scanning, setScanning] = useState(false);
   const [lastScan, setLastScan] = useState<Scan | null>(null);
-  const [nextScanAt, setNextScanAt] = useState<number | null>(null);
+  // Anchor + remaining seconds reported by the server at the last poll. The
+  // local timer ticks down from (anchor + remaining) using the client clock,
+  // but server polls realign the badge so any clock skew never accumulates.
+  const [nextScanAnchor, setNextScanAnchor] = useState<{ remaining: number; at: number } | null>(null);
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' } | null>(loadSortPref);
 
   // Persist sort preference across reloads. `null` (unsorted) clears the
@@ -53,7 +56,11 @@ export default function Hosts() {
     try {
       const s = await api.scanStatus();
       if (s.lastScan) setLastScan(s.lastScan);
-      setNextScanAt(s.nextScanAt ?? null);
+      if (typeof s.nextScanInSeconds === 'number') {
+        setNextScanAnchor({ remaining: s.nextScanInSeconds, at: Date.now() });
+      } else {
+        setNextScanAnchor(null);
+      }
       const justFinished = wasScanning.value && !s.running;
       if (justFinished) {
         // Refresh the host list before clearing the spinner so the user sees
@@ -75,8 +82,10 @@ export default function Hosts() {
     // Poll faster when a scan is running OR when the next scheduled scan is
     // due / overdue, so the badge transitions to "scanning" promptly instead
     // of sitting on the countdown.
-    const nowSec = Math.floor(Date.now() / 1000);
-    const dueSoon = nextScanAt != null && nextScanAt - nowSec <= 2;
+    const remainingNow = nextScanAnchor
+      ? nextScanAnchor.remaining - Math.floor((Date.now() - nextScanAnchor.at) / 1000)
+      : null;
+    const dueSoon = remainingNow != null && remainingNow <= 2;
     const interval = scanning || dueSoon ? 1_000 : 5_000;
     const id = setInterval(() => {
       load();
@@ -84,7 +93,7 @@ export default function Hosts() {
     }, interval);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, scanning, nextScanAt]);
+  }, [q, scanning, nextScanAnchor]);
 
   const counts = useMemo(() => {
     const byVlan = new Map<number, number>();
@@ -201,7 +210,7 @@ export default function Hosts() {
       {/* Mobile-only: badge on its own row, inheriting parent's space-y gap */}
       <div className="sm:hidden">
         <LastScanBadge scan={lastScan} scanning={scanning} />
-        <NextScanBadge nextAt={nextScanAt} scanning={scanning} />
+        <NextScanBadge anchor={nextScanAnchor} scanning={scanning} />
       </div>
 
       <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -215,7 +224,7 @@ export default function Hosts() {
         ))}
         {/* Desktop-only: badge right-aligned on the filter row */}
         <LastScanBadge scan={lastScan} scanning={scanning} className="ml-auto hidden sm:inline-flex" />
-        <NextScanBadge nextAt={nextScanAt} scanning={scanning} className="hidden sm:inline-flex" />
+        <NextScanBadge anchor={nextScanAnchor} scanning={scanning} className="hidden sm:inline-flex" />
       </div>
 
       {hosts.length === 0 ? (
@@ -424,24 +433,29 @@ function LastScanBadge({ scan, scanning, className }: { scan: Scan | null; scann
 }
 
 function NextScanBadge({
-  nextAt,
+  anchor,
   scanning,
   className,
 }: {
-  nextAt: number | null;
+  anchor: { remaining: number; at: number } | null;
   scanning: boolean;
   className?: string;
 }) {
-  const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
+  const [tick, setTick] = useState(0);
   useEffect(() => {
-    if (scanning || nextAt == null) return;
-    const id = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000);
+    if (scanning || !anchor) return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(id);
-  }, [scanning, nextAt]);
+  }, [scanning, anchor]);
 
-  if (scanning || nextAt == null) return null;
+  if (scanning || !anchor) return null;
 
-  const remaining = Math.max(0, nextAt - now);
+  // Compute remaining locally from the server's anchor; the local clock only
+  // measures elapsed time since the poll, so any client/server clock skew
+  // doesn't bleed into the displayed countdown.
+  void tick;
+  const elapsed = Math.floor((Date.now() - anchor.at) / 1000);
+  const remaining = Math.max(0, anchor.remaining - elapsed);
   const m = Math.floor(remaining / 60);
   const s = remaining % 60;
   const label = remaining === 0 ? 'starting…' : `${m}:${s.toString().padStart(2, '0')}`;

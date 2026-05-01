@@ -40,7 +40,7 @@ export const api = {
 
   runScan: () => request<{ status: string }>('/api/scan/run', { method: 'POST' }),
   scanStatus: () =>
-    request<{ running: boolean; lastScan?: Scan; nextScanAt?: number }>('/api/scan/status'),
+    request<{ running: boolean; lastScan?: Scan; nextScanInSeconds?: number }>('/api/scan/status'),
 
   getSettings: () => request<Settings>('/api/settings'),
   putSettings: (s: Settings) => request<{ ok: boolean }>('/api/settings', { method: 'PUT', body: JSON.stringify(s) }),
