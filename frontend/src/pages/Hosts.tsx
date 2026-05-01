@@ -72,16 +72,19 @@ export default function Hosts() {
   useEffect(() => {
     load();
     pollStatus();
-    // Poll faster while a scan is running so the transition to "complete"
-    // and the refreshed list are reflected promptly in the UI.
-    const interval = scanning ? 1_000 : 5_000;
+    // Poll faster when a scan is running OR when the next scheduled scan is
+    // due / overdue, so the badge transitions to "scanning" promptly instead
+    // of sitting on the countdown.
+    const nowSec = Math.floor(Date.now() / 1000);
+    const dueSoon = nextScanAt != null && nextScanAt - nowSec <= 2;
+    const interval = scanning || dueSoon ? 1_000 : 5_000;
     const id = setInterval(() => {
       load();
       pollStatus();
     }, interval);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, scanning]);
+  }, [q, scanning, nextScanAt]);
 
   const counts = useMemo(() => {
     const byVlan = new Map<number, number>();
@@ -441,7 +444,7 @@ function NextScanBadge({
   const remaining = Math.max(0, nextAt - now);
   const m = Math.floor(remaining / 60);
   const s = remaining % 60;
-  const label = remaining === 0 ? 'imminent' : `${m}:${s.toString().padStart(2, '0')}`;
+  const label = remaining === 0 ? 'starting…' : `${m}:${s.toString().padStart(2, '0')}`;
 
   return (
     <span
