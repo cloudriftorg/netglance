@@ -67,19 +67,26 @@ export default function SettingsPage() {
           {s.networks.map((n, i) => (
             <div key={i} className="grid grid-cols-12 gap-2">
               <input
-                className="input col-span-4"
+                className="input col-span-11 sm:col-span-4"
                 placeholder="Name (e.g. trusted)"
                 value={n.name}
                 onChange={(e) => updateNet(i, { name: e.target.value })}
               />
+              <button
+                className="col-span-1 text-sm text-red-600 sm:order-last"
+                onClick={() => update('networks', s.networks.filter((_, j) => j !== i))}
+                aria-label="Remove"
+              >
+                ×
+              </button>
               <input
-                className="input col-span-5"
+                className="input col-span-8 sm:col-span-5"
                 placeholder="192.168.1.0/24"
                 value={n.cidr}
                 onChange={(e) => updateNet(i, { cidr: e.target.value })}
               />
               <input
-                className="input col-span-2"
+                className="input col-span-4 sm:col-span-2"
                 inputMode="numeric"
                 placeholder="VLAN"
                 value={n.vlanId ?? ''}
@@ -89,13 +96,6 @@ export default function SettingsPage() {
                   })
                 }
               />
-              <button
-                className="col-span-1 text-sm text-red-600"
-                onClick={() => update('networks', s.networks.filter((_, j) => j !== i))}
-                aria-label="Remove"
-              >
-                ×
-              </button>
             </div>
           ))}
           <button

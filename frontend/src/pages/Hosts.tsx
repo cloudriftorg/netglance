@@ -144,17 +144,21 @@ export default function Hosts() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-center gap-2">
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search MAC, IP, name…" className="input flex-1" />
         <button
           onClick={runScan}
           disabled={scanning}
           aria-label={scanning ? 'Scan in progress' : 'Scan now'}
           title={scanning ? 'Scan in progress' : 'Scan now'}
-          className="btn-primary inline-flex h-9 w-9 items-center justify-center rounded-full p-0 sm:h-10 sm:w-10"
+          className="btn-primary inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full p-0 sm:h-10 sm:w-10"
         >
           {scanning ? <Spinner className="h-4 w-4" /> : <RefreshIcon className="h-4 w-4" />}
         </button>
+      </div>
+
+      <div>
+        <LastScanBadge scan={lastScan} scanning={scanning} />
       </div>
 
       <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -166,7 +170,6 @@ export default function Hosts() {
         {vlans.map((v) => (
           <FilterChip key={v} active={vlan === v} onClick={() => setVlan(v)}>VLAN {v}</FilterChip>
         ))}
-        <LastScanBadge scan={lastScan} scanning={scanning} className="ml-auto" />
       </div>
 
       {hosts.length === 0 ? (
@@ -174,7 +177,82 @@ export default function Hosts() {
           No hosts yet. {scanning ? 'A scan is in progress…' : <>Try <button onClick={runScan} className="underline">running a scan</button> or check Settings → Networks.</>}
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <>
+        {/* Mobile: card list */}
+        <ul className="space-y-2 sm:hidden">
+          {sortedHosts.map((h) => (
+            <li
+              key={h.mac}
+              className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <button
+                  onClick={() => navigate(`/h/${h.mac}`)}
+                  className="min-w-0 flex-1 text-left"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="truncate font-medium hover:text-brand-600 hover:underline dark:hover:text-brand-400">
+                      {h.customName || h.ip}
+                    </span>
+                    {h.isNew && (
+                      <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800 dark:bg-amber-500/20 dark:text-amber-200">
+                        NEW
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-0.5 truncate font-mono text-xs text-slate-500 dark:text-slate-400">
+                    {h.ip}
+                    <span className="mx-1 text-slate-300 dark:text-slate-600">·</span>
+                    {h.mac}
+                  </div>
+                  {(h.customVendor || h.vendor) && (
+                    <div className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">
+                      {h.customVendor || h.vendor}
+                    </div>
+                  )}
+                </button>
+                <button
+                  onClick={() => deleteHost(h)}
+                  title="Delete host"
+                  aria-label="Delete host"
+                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-500/20 dark:hover:text-red-300"
+                >
+                  <TrashIcon />
+                </button>
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span
+                  className={clsx(
+                    'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium',
+                    h.online
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200'
+                      : 'bg-slate-100 text-slate-600 dark:bg-slate-700/50 dark:text-slate-300',
+                  )}
+                >
+                  <span className={clsx('h-1.5 w-1.5 rounded-full', h.online ? 'bg-emerald-500' : 'bg-slate-400')} />
+                  {h.online ? 'Online' : 'Offline'}
+                </span>
+                {h.vlanId != null && (
+                  <span className="inline-block rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700 dark:bg-brand-700/20 dark:text-brand-50">
+                    VLAN {h.vlanId}
+                  </span>
+                )}
+                <label className="ml-auto flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                  <span>NEW</span>
+                  <Toggle
+                    on={h.isNew}
+                    onChange={() => toggleNew(h)}
+                    title={h.isNew ? 'Acknowledge (clear NEW flag)' : 'Flag as NEW'}
+                    ariaLabel={h.isNew ? 'Clear NEW flag' : 'Flag as NEW'}
+                  />
+                </label>
+              </div>
+            </li>
+          ))}
+        </ul>
+
+        {/* Desktop: table */}
+        <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:block">
           <table className="w-full table-fixed text-sm">
             <colgroup>
               <col className="w-52" />
@@ -270,6 +348,7 @@ export default function Hosts() {
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
   );
