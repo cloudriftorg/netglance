@@ -3,10 +3,12 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import clsx from 'clsx';
 import { api, Host, HostEvent } from '../lib/api';
 import { errMessage, useToast } from '../components/Toast';
+import { useConfirm } from '../components/Confirm';
 import Spinner from '../components/Spinner';
 
 export default function HostDetail() {
   const toast = useToast();
+  const confirm = useConfirm();
   const navigate = useNavigate();
   const { mac } = useParams<{ mac: string }>();
   const [data, setData] = useState<{ host: Host; events: HostEvent[] } | null>(null);
@@ -46,7 +48,13 @@ export default function HostDetail() {
 
   async function deleteHost() {
     if (!mac) return;
-    if (!confirm('Delete this host? It will reappear on the next scan and will be flagged as NEW.')) return;
+    const ok = await confirm({
+      title: 'Delete this host?',
+      message: 'It will reappear flagged as NEW the next time it answers a scan.',
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
     setDeleting(true);
     try {
       await api.deleteHost(mac);

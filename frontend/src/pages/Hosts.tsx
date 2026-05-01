@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { api, Host, Scan } from '../lib/api';
 import { errMessage, useToast } from '../components/Toast';
+import { useConfirm } from '../components/Confirm';
 import Spinner from '../components/Spinner';
 
 export default function Hosts() {
   const navigate = useNavigate();
   const toast = useToast();
+  const confirm = useConfirm();
   const [hosts, setHosts] = useState<Host[]>([]);
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<'all' | 'online' | 'offline'>('all');
@@ -135,7 +137,13 @@ export default function Hosts() {
 
   async function deleteHost(h: Host) {
     const label = h.customName || h.ip;
-    if (!confirm(`Delete host "${label}"? It will reappear flagged as NEW the next time it answers a scan.`)) return;
+    const ok = await confirm({
+      title: `Delete host "${label}"?`,
+      message: 'It will reappear flagged as NEW the next time it answers a scan.',
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await api.deleteHost(h.mac);
       setHosts((cur) => cur.filter((x) => x.mac !== h.mac));

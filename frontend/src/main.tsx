@@ -3,13 +3,16 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { ToastProvider } from './components/Toast';
+import { ConfirmProvider } from './components/Confirm';
 import './index.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
       <ToastProvider>
-        <App />
+        <ConfirmProvider>
+          <App />
+        </ConfirmProvider>
       </ToastProvider>
     </BrowserRouter>
   </React.StrictMode>
