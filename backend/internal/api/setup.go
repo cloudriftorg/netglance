@@ -3,19 +3,10 @@ package api
 import (
 	"encoding/json"
 	"net/http"
-	"strings"
 
 	"github.com/netglance/netglance/internal/auth"
 	"github.com/netglance/netglance/internal/store"
 )
-
-type setupRequest struct {
-	Username  string          `json:"username"`
-	Password  string          `json:"password"`
-	Networks  []NetworkConfig `json:"networks,omitempty"`
-	SMTP      *SMTPConfig     `json:"smtp,omitempty"`
-	ScanEvery int             `json:"scanEverySeconds,omitempty"`
-}
 
 type NetworkConfig struct {
 	Name   string `json:"name"`
@@ -34,6 +25,13 @@ type SMTPConfig struct {
 	Recipients []string `json:"recipients"`
 }
 
+// setupRequest is the first wizard step: just the admin password. Interface
+// selection is a separate authenticated step done after this succeeds, so the
+// listInterfaces endpoint stays uniformly auth-gated.
+type setupRequest struct {
+	Password string `json:"password"`
+}
+
 func setupHandler(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		n, err := st.UserCount()
@@ -50,34 +48,20 @@ func setupHandler(st *store.Store) http.HandlerFunc {
 			http.Error(w, "invalid body", http.StatusBadRequest)
 			return
 		}
-		req.Username = strings.TrimSpace(req.Username)
-		if req.Username == "" {
-			http.Error(w, "username required", http.StatusBadRequest)
-			return
-		}
 		hash, err := auth.HashPassword(req.Password)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		uid, err := st.CreateUser(req.Username, hash)
+		uid, err := st.CreateAdmin(hash)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
-		}
-		if len(req.Networks) > 0 {
-			_ = st.SetSetting("networks", req.Networks)
-		}
-		if req.SMTP != nil {
-			_ = st.SetSetting("smtp", req.SMTP)
-		}
-		if req.ScanEvery > 0 {
-			_ = st.SetSetting("scanEverySeconds", req.ScanEvery)
 		}
 		if err := auth.IssueSession(w, r, st, uid); err != nil {
 			http.Error(w, "session error", http.StatusInternalServerError)
 			return
 		}
-		writeJSON(w, http.StatusCreated, map[string]any{"username": req.Username})
+		writeJSON(w, http.StatusCreated, map[string]any{"ok": true})
 	}
 }

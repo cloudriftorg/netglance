@@ -17,5 +17,3 @@ func runArpScan(_ context.Context, _ string, _ string, _ *slog.Logger) []Discove
 func findInterfaceForCIDR(_ string) string { return "" }
 
 func ifaceIPv4Networks(_ string) []string { return nil }
-
-func activeIPv4Ifaces() []string { return nil }

@@ -110,14 +110,17 @@ func runOnce(ctx context.Context, st *store.Store, s Settings, logger *slog.Logg
 // container's host (network_mode: host) — without L2 presence the network is
 // silently skipped with a warning.
 //
-// ScanIfaces (when non-empty) acts as an allow-list: only ifaces in the list
-// are used. When empty, every active IPv4-bearing interface is scanned, so
-// multi-NIC / multi-VLAN hosts work out of the box. Configured Networks are
-// still honoured for naming/VLAN labelling and are skipped if their detected
-// iface isn't in the active allow-list.
+// The scan is driven by Settings.ScanIfaces — an explicit allow-list set in
+// the UI. Empty list = no scan happens (the user must opt in to which NICs
+// netglance touches). For each allowed iface we scan the iface's own IPv4
+// CIDRs, plus any configured Network whose CIDR resolves to that iface (for
+// naming and VLAN tagging).
 func discover(ctx context.Context, s Settings, logger *slog.Logger) []Discovery {
-	allow, explicit := ifaceAllowSet(s.ScanIfaces)
-	targets := buildScanTargets(s, allow, explicit, logger)
+	allow := ifaceAllowSet(s.ScanIfaces)
+	if len(allow) == 0 {
+		return nil
+	}
+	targets := buildScanTargets(s, allow, logger)
 	if len(targets) == 0 {
 		return nil
 	}
@@ -152,31 +155,20 @@ type scanTarget struct {
 	vlan  *int
 }
 
-// ifaceAllowSet returns (allowSet, explicit). explicit=true means the user
-// picked ifaces; explicit=false means the set was auto-built from active
-// IPv4 ifaces (so configured Networks with non-listed ifaces are still
-// honoured rather than being filtered out as "not allowed").
-func ifaceAllowSet(list []string) (map[string]bool, bool) {
-	if len(list) > 0 {
-		m := make(map[string]bool, len(list))
-		for _, n := range list {
-			if n != "" {
-				m[n] = true
-			}
-		}
-		if len(m) > 0 {
-			return m, true
+func ifaceAllowSet(list []string) map[string]bool {
+	if len(list) == 0 {
+		return nil
+	}
+	m := make(map[string]bool, len(list))
+	for _, n := range list {
+		if n != "" {
+			m[n] = true
 		}
 	}
-	// Default: all active interfaces with at least one usable IPv4 address.
-	m := map[string]bool{}
-	for _, name := range activeIPv4Ifaces() {
-		m[name] = true
-	}
-	return m, false
+	return m
 }
 
-func buildScanTargets(s Settings, allow map[string]bool, explicit bool, logger *slog.Logger) []scanTarget {
+func buildScanTargets(s Settings, allow map[string]bool, logger *slog.Logger) []scanTarget {
 	var out []scanTarget
 	used := map[string]bool{} // iface|cidr keys to avoid duplicates
 
@@ -187,7 +179,7 @@ func buildScanTargets(s Settings, allow map[string]bool, explicit bool, logger *
 				"network", n.Name, "cidr", n.CIDR)
 			continue
 		}
-		if explicit && !allow[iface] {
+		if !allow[iface] {
 			logger.Debug("skipping network: iface not in scan allow-list",
 				"network", n.Name, "cidr", n.CIDR, "iface", iface)
 			continue

@@ -9,7 +9,7 @@ help:
 	@echo "  make reset        Wipe the local DB volume (next run = fresh setup)"
 	@echo ""
 	@echo "  make ui           Frontend dev server with HMR; proxies /api to a remote"
-	@echo "                    backend (default: http://192.168.1.21:8080). Override:"
+	@echo "                    backend (default: http://localhost:8080). Override:"
 	@echo "                    make ui BACKEND=http://other:8080"
 	@echo ""
 	@echo "  make build        Static binary at ./netglance (frontend embedded)"
@@ -37,7 +37,7 @@ reset:
 	docker compose -f compose.dev.yml down -v
 
 # ── Frontend HMR against a remote backend ────────────────────────────
-BACKEND ?= http://192.168.1.21:8080
+BACKEND ?= http://localhost:8080
 ui:
 	@echo "→ http://localhost:5173  (proxying /api → $(BACKEND))"
 	cd frontend && VITE_BACKEND_URL=$(BACKEND) npm run dev

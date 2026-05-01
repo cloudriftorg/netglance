@@ -8,7 +8,7 @@ import HostDetail from './pages/HostDetail';
 import SettingsPage from './pages/Settings';
 import Layout from './components/Layout';
 
-type Auth = { state: 'loading' } | { state: 'guest'; setupComplete: boolean } | { state: 'authed'; username: string };
+type Auth = { state: 'loading' } | { state: 'guest'; setupComplete: boolean } | { state: 'authed' };
 
 export default function App() {
   const [auth, setAuth] = useState<Auth>({ state: 'loading' });
@@ -16,8 +16,8 @@ export default function App() {
 
   async function refresh() {
     try {
-      const me = await api.me();
-      setAuth({ state: 'authed', username: me.username });
+      await api.me();
+      setAuth({ state: 'authed' });
     } catch {
       const s = await api.setupStatus().catch(() => ({ setupComplete: false }));
       setAuth({ state: 'guest', setupComplete: s.setupComplete });
@@ -50,7 +50,6 @@ export default function App() {
 
   return (
     <Layout
-      username={auth.username}
       onLogout={async () => {
         await api.logout();
         navigate('/login');

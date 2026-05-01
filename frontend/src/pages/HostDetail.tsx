@@ -32,7 +32,7 @@ export default function HostDetail() {
   }, [mac]);
 
   async function save() {
-    if (!mac) return;
+    if (!mac || !data) return;
     setSaving(true);
     try {
       await api.updateHost(mac, { customName, customVendor, notifyOffline, isNew });
@@ -94,9 +94,9 @@ export default function HostDetail() {
           )}
         </div>
         <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3 lg:grid-cols-4">
-          <Field k="MAC" v={host.mac} mono />
           <Field k="IP" v={host.ip} mono />
           <Field k="VLAN" v={host.vlanId != null ? `VLAN ${host.vlanId}` : '—'} />
+          <Field k="MAC" v={host.mac} mono />
           <Field k="Vendor" v={host.customVendor || host.vendor || '—'} />
           <Field k="First seen" v={new Date(host.firstSeen * 1000).toLocaleString()} />
           <Field k="Last seen" v={new Date(host.lastSeen * 1000).toLocaleString()} />
@@ -128,42 +128,51 @@ export default function HostDetail() {
           </label>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={isNew} onChange={(e) => setIsNew(e.target.checked)} />
-            Flag as NEW (unacknowledged)
+            Flag as new
           </label>
-          <div className="border-t border-slate-200 pt-3 dark:border-slate-800">
-            <button
-              onClick={deleteHost}
-              disabled={deleting}
-              className="text-sm text-red-600 hover:underline disabled:cursor-not-allowed disabled:opacity-60 dark:text-red-400"
-            >
-              {deleting ? 'Deleting…' : 'Delete this host'}
-            </button>
-            <p className="mt-1 text-xs text-slate-500">
-              Removes the host and its history. Will reappear flagged as NEW the next time it answers a scan.
-            </p>
-          </div>
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-          <h3 className="text-sm font-semibold">Recent events</h3>
-          {events.length === 0 ? (
-            <p className="mt-2 text-sm text-slate-500">No events recorded.</p>
-          ) : (
-            <ul className="mt-2 max-h-80 divide-y divide-slate-100 overflow-y-auto text-sm dark:divide-slate-800">
-              {events.slice(0, 100).map((e) => (
-                <li key={e.id} className="flex items-center justify-between gap-4 py-1.5">
-                  <span className="truncate">
-                    {eventLabel(e.kind)}
-                    {e.ip ? <span className="ml-1 font-mono text-xs text-slate-500">({e.ip})</span> : null}
-                  </span>
-                  <span className="shrink-0 text-xs text-slate-500">
-                    {new Date(e.ts * 1000).toLocaleString()}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        <div className="flex h-full flex-col gap-4">
+          <section className="flex-1 rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+            <h3 className="text-sm font-semibold">Recent events</h3>
+            {events.length === 0 ? (
+              <p className="mt-2 text-sm text-slate-500">No events recorded.</p>
+            ) : (
+              <ul className="mt-2 max-h-80 divide-y divide-slate-100 overflow-y-auto text-sm dark:divide-slate-800">
+                {events.slice(0, 100).map((e) => (
+                  <li key={e.id} className="flex items-center justify-between gap-4 py-1.5">
+                    <span className="truncate">
+                      {eventLabel(e.kind)}
+                      {e.ip ? <span className="ml-1 font-mono text-xs text-slate-500">({e.ip})</span> : null}
+                    </span>
+                    <span className="shrink-0 text-xs text-slate-500">
+                      {new Date(e.ts * 1000).toLocaleString()}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className="rounded-2xl border border-red-200 bg-red-50/50 p-4 dark:border-red-500/30 dark:bg-red-500/5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-red-700 dark:text-red-300">Danger zone</h3>
+                <p className="mt-0.5 text-xs text-red-700/80 dark:text-red-300/80">
+                  Removes the host and its history. It will reappear flagged as NEW the next time it answers a scan.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={deleteHost}
+                disabled={deleting}
+                className="rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-60 dark:border-red-500/40 dark:bg-transparent dark:text-red-300 dark:hover:bg-red-500/10"
+              >
+                {deleting ? 'Deleting…' : 'Delete this host'}
+              </button>
+            </div>
+          </section>
+        </div>
       </div>
     </div>
   );

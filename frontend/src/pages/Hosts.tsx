@@ -37,11 +37,9 @@ export default function Hosts() {
 
   async function load() {
     try {
-      const data = await api.listHosts({
-        q: q || undefined,
-        online: filter === 'all' ? null : filter === 'online',
-        vlan,
-      });
+      // online/vlan filters are applied client-side so the chip counters can
+      // reflect the full q-scoped list without re-querying when toggling.
+      const data = await api.listHosts({ q: q || undefined });
       setHosts(data ?? []);
     } catch (err) {
       toast.error(errMessage(err, 'Load failed'));
@@ -72,21 +70,41 @@ export default function Hosts() {
     }, 5_000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, filter, vlan]);
+  }, [q]);
 
-  const vlans = useMemo(() => {
-    const set = new Set<number>();
-    hosts.forEach((h) => h.vlanId != null && set.add(h.vlanId));
-    return Array.from(set).sort((a, b) => a - b);
+  const counts = useMemo(() => {
+    const byVlan = new Map<number, number>();
+    let online = 0;
+    let offline = 0;
+    for (const h of hosts) {
+      if (h.online) online++;
+      else offline++;
+      if (h.vlanId != null) byVlan.set(h.vlanId, (byVlan.get(h.vlanId) ?? 0) + 1);
+    }
+    return { total: hosts.length, online, offline, byVlan };
   }, [hosts]);
 
+  const vlans = useMemo(
+    () => Array.from(counts.byVlan.keys()).sort((a, b) => a - b),
+    [counts],
+  );
+
+  const filteredHosts = useMemo(() => {
+    return hosts.filter((h) => {
+      if (filter === 'online' && !h.online) return false;
+      if (filter === 'offline' && h.online) return false;
+      if (vlan != null && h.vlanId !== vlan) return false;
+      return true;
+    });
+  }, [hosts, filter, vlan]);
+
   const sortedHosts = useMemo(() => {
-    if (!sort) return hosts;
-    const arr = hosts.slice();
+    if (!sort) return filteredHosts;
+    const arr = filteredHosts.slice();
     arr.sort((a, b) => compareHosts(a, b, sort.key));
     if (sort.dir === 'desc') arr.reverse();
     return arr;
-  }, [hosts, sort]);
+  }, [filteredHosts, sort]);
 
   // Three-state cycle on a header: unsorted/other → asc → desc → unsorted.
   function clickSort(key: SortKey) {
@@ -97,16 +115,19 @@ export default function Hosts() {
     });
   }
 
-  async function toggleNew(h: Host) {
-    const next = !h.isNew;
+  // Click on the NEW badge acknowledges the host: the badge disappears and
+  // the host is no longer flagged. There's no UI to set the flag back on —
+  // it only flips on automatically when arp-scan first sees a MAC.
+  async function acknowledgeNew(h: Host) {
+    if (!h.isNew) return;
     try {
       await api.updateHost(h.mac, {
         customName: h.customName || '',
         customVendor: h.customVendor || '',
         notifyOffline: h.notifyOffline,
-        isNew: next,
+        isNew: false,
       });
-      setHosts((cur) => cur.map((x) => (x.mac === h.mac ? { ...x, isNew: next } : x)));
+      setHosts((cur) => cur.map((x) => (x.mac === h.mac ? { ...x, isNew: false } : x)));
     } catch (err) {
       toast.error(errMessage(err, 'Update failed'));
     }
@@ -163,13 +184,13 @@ export default function Hosts() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2 text-sm">
-        <FilterChip active={filter === 'all'} onClick={() => setFilter('all')}>All</FilterChip>
-        <FilterChip active={filter === 'online'} onClick={() => setFilter('online')}>Online</FilterChip>
-        <FilterChip active={filter === 'offline'} onClick={() => setFilter('offline')}>Offline</FilterChip>
+        <FilterChip active={filter === 'all'} count={counts.total} onClick={() => setFilter('all')}>All</FilterChip>
+        <FilterChip active={filter === 'online'} count={counts.online} onClick={() => setFilter('online')}>Online</FilterChip>
+        <FilterChip active={filter === 'offline'} count={counts.offline} onClick={() => setFilter('offline')}>Offline</FilterChip>
         <span className="mx-1 text-slate-300">|</span>
-        <FilterChip active={vlan === null} onClick={() => setVlan(null)}>Any VLAN</FilterChip>
+        <FilterChip active={vlan === null} count={counts.total} onClick={() => setVlan(null)}>Any VLAN</FilterChip>
         {vlans.map((v) => (
-          <FilterChip key={v} active={vlan === v} onClick={() => setVlan(v)}>VLAN {v}</FilterChip>
+          <FilterChip key={v} active={vlan === v} count={counts.byVlan.get(v) ?? 0} onClick={() => setVlan(v)}>VLAN {v}</FilterChip>
         ))}
         {/* Desktop-only: badge right-aligned on the filter row */}
         <LastScanBadge scan={lastScan} scanning={scanning} className="ml-auto hidden sm:inline-flex" />
@@ -189,19 +210,15 @@ export default function Hosts() {
               className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900"
             >
               <div className="flex items-start justify-between gap-2">
-                <button
-                  onClick={() => navigate(`/h/${h.mac}`)}
-                  className="min-w-0 flex-1 text-left"
-                >
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="truncate font-medium hover:text-brand-600 hover:underline dark:hover:text-brand-400">
+                    <button
+                      onClick={() => navigate(`/h/${h.mac}`)}
+                      className="min-w-0 truncate text-left font-medium hover:text-brand-600 hover:underline dark:hover:text-brand-400"
+                    >
                       {h.customName || h.ip}
-                    </span>
-                    {h.isNew && (
-                      <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800 dark:bg-amber-500/20 dark:text-amber-200">
-                        NEW
-                      </span>
-                    )}
+                    </button>
+                    {h.isNew && <NewBadge onClick={() => acknowledgeNew(h)} />}
                   </div>
                   <div className="mt-0.5 truncate font-mono text-xs text-slate-500 dark:text-slate-400">
                     {h.ip}
@@ -213,7 +230,7 @@ export default function Hosts() {
                       {h.customVendor || h.vendor}
                     </div>
                   )}
-                </button>
+                </div>
                 <button
                   onClick={() => deleteHost(h)}
                   title="Delete host"
@@ -240,15 +257,6 @@ export default function Hosts() {
                     VLAN {h.vlanId}
                   </span>
                 )}
-                <label className="ml-auto flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                  <span>NEW</span>
-                  <Toggle
-                    on={h.isNew}
-                    onChange={() => toggleNew(h)}
-                    title={h.isNew ? 'Acknowledge (clear NEW flag)' : 'Flag as NEW'}
-                    ariaLabel={h.isNew ? 'Clear NEW flag' : 'Flag as NEW'}
-                  />
-                </label>
               </div>
             </li>
           ))}
@@ -265,7 +273,6 @@ export default function Hosts() {
               <col className="hidden w-60 lg:table-column" />
               <col className="w-24" />
               <col className="w-16" />
-              <col className="w-16" />
             </colgroup>
             <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-400">
               <tr>
@@ -275,7 +282,6 @@ export default function Hosts() {
                 <SortableTh label="MAC" sortKey="mac" sort={sort} onClick={clickSort} className="hidden md:table-cell" />
                 <SortableTh label="Vendor" sortKey="vendor" sort={sort} onClick={clickSort} className="hidden lg:table-cell" />
                 <SortableTh label="Status" sortKey="status" sort={sort} onClick={clickSort} />
-                <SortableTh label="New" sortKey="new" sort={sort} onClick={clickSort} align="center" />
                 <th className="px-3 py-2.5"></th>
               </tr>
             </thead>
@@ -290,11 +296,7 @@ export default function Hosts() {
                       >
                         {h.customName || h.ip}
                       </button>
-                      {h.isNew && (
-                        <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800 dark:bg-amber-500/20 dark:text-amber-200">
-                          NEW
-                        </span>
-                      )}
+                      {h.isNew && <NewBadge onClick={() => acknowledgeNew(h)} />}
                     </div>
                   </td>
                   <td className="truncate px-3 font-mono text-xs text-slate-700 dark:text-slate-300">{h.ip}</td>
@@ -323,16 +325,6 @@ export default function Hosts() {
                       <span className={clsx('h-1.5 w-1.5 rounded-full', h.online ? 'bg-emerald-500' : 'bg-slate-400')} />
                       {h.online ? 'Online' : 'Offline'}
                     </span>
-                  </td>
-                  <td className="px-3">
-                    <div className="flex justify-center">
-                      <Toggle
-                        on={h.isNew}
-                        onChange={() => toggleNew(h)}
-                        title={h.isNew ? 'Acknowledge (clear NEW flag)' : 'Flag as NEW'}
-                        ariaLabel={h.isNew ? 'Clear NEW flag' : 'Flag as NEW'}
-                      />
-                    </div>
                   </td>
                   <td className="px-3">
                     <div className="flex justify-end">
@@ -409,8 +401,8 @@ function LastScanBadge({ scan, scanning, className }: { scan: Scan | null; scann
   );
 }
 
-type SortKey = 'name' | 'ip' | 'vlan' | 'mac' | 'vendor' | 'status' | 'new';
-const SORT_KEYS: SortKey[] = ['name', 'ip', 'vlan', 'mac', 'vendor', 'status', 'new'];
+type SortKey = 'name' | 'ip' | 'vlan' | 'mac' | 'vendor' | 'status';
+const SORT_KEYS: SortKey[] = ['name', 'ip', 'vlan', 'mac', 'vendor', 'status'];
 
 function loadSortPref(): { key: SortKey; dir: 'asc' | 'desc' } | null {
   try {
@@ -464,8 +456,6 @@ function compareHosts(a: Host, b: Host, key: SortKey): number {
       return vendorOf(a).localeCompare(vendorOf(b));
     case 'status':
       return Number(b.online) - Number(a.online); // online first
-    case 'new':
-      return Number(b.isNew) - Number(a.isNew); // NEW first
     default:
       return 0;
   }
@@ -521,35 +511,16 @@ function SortIndicator({ dir }: { dir: 'asc' | 'desc' | null }) {
   );
 }
 
-function Toggle({
-  on,
-  onChange,
-  title,
-  ariaLabel,
-}: {
-  on: boolean;
-  onChange: () => void;
-  title?: string;
-  ariaLabel?: string;
-}) {
+function NewBadge({ onClick }: { onClick: () => void }) {
   return (
     <button
-      role="switch"
-      aria-checked={on}
-      aria-label={ariaLabel}
-      title={title}
-      onClick={onChange}
-      className={clsx(
-        'relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900',
-        on ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-700',
-      )}
+      type="button"
+      onClick={onClick}
+      title="Acknowledge — clears the NEW flag"
+      aria-label="Acknowledge new host"
+      className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800 transition hover:bg-amber-200 dark:bg-amber-500/20 dark:text-amber-200 dark:hover:bg-amber-500/30"
     >
-      <span
-        className={clsx(
-          'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform',
-          on ? 'translate-x-[18px]' : 'translate-x-0.5',
-        )}
-      />
+      NEW
     </button>
   );
 }
@@ -594,18 +565,40 @@ function RefreshIcon({ className }: { className?: string }) {
   );
 }
 
-function FilterChip({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) {
+function FilterChip({
+  active,
+  count,
+  children,
+  onClick,
+}: {
+  active: boolean;
+  count?: number;
+  children: React.ReactNode;
+  onClick: () => void;
+}) {
   return (
     <button
       onClick={onClick}
       className={clsx(
-        'rounded-full border px-3 py-1 text-xs transition',
+        'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition',
         active
           ? 'border-brand-500 bg-brand-500 text-white'
           : 'border-slate-300 text-slate-600 hover:border-slate-400 dark:border-slate-700 dark:text-slate-300'
       )}
     >
-      {children}
+      <span>{children}</span>
+      {count != null && (
+        <span
+          className={clsx(
+            'rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none',
+            active
+              ? 'bg-white/20 text-white'
+              : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
+          )}
+        >
+          {count}
+        </span>
+      )}
     </button>
   );
 }

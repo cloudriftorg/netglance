@@ -3,6 +3,7 @@
 backend/netglance
 frontend/dist/
 frontend/node_modules/
+frontend/tsconfig.tsbuildinfo
 # Frontend build artifacts copied here by `make build` / Dockerfile.
 # Keep the placeholder index.html in git so //go:embed has files to scan
 # in CI (go vet / go test) when no frontend build has run.

@@ -4,6 +4,7 @@ package scanner
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"log/slog"
 	"net"
@@ -16,22 +17,38 @@ import (
 // this, a misconfigured interface (e.g. a Docker bridge with a /16 netmask
 // in dev) makes arp-scan hang for many minutes scanning 65k IPs, which in
 // turn pins the global inFlight lock and stalls the periodic scan loop.
-const arpScanTimeout = 60 * time.Second
+const arpScanTimeout = 120 * time.Second
 
-// runArpScan executes `arp-scan -gNx -I <iface> <cidr>` and returns one
+// runArpScan executes `arp-scan -gNx -r 5 -I <iface> <cidr>` and returns one
 // Discovery per responding host. We pass the explicit CIDR (instead of the
 // `-l` localnet flag) so the scan scope matches exactly what the user
 // configured in netglance, regardless of the interface's own netmask.
+//
+// `-r 5` (retry) is bumped from the arp-scan default of 3: hosts on a
+// quiet/slow VLAN often miss the first couple of ARP requests when the
+// container has just started, and the difference between 3 and 5 retries
+// is negligible on a healthy LAN but recovers a lot of devices on a
+// loaded one.
 func runArpScan(parent context.Context, iface, cidr string, logger *slog.Logger) []Discovery {
 	ctx, cancel := context.WithTimeout(parent, arpScanTimeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "arp-scan", "-gNx", "-I", iface, cidr)
-	out, err := cmd.Output()
+	cmd := exec.CommandContext(ctx, "arp-scan", "-gNx", "-r", "5", "-I", iface, cidr)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
 	if err != nil {
-		logger.Warn("arp-scan failed", "iface", iface, "cidr", cidr, "err", err)
+		logger.Warn("arp-scan failed",
+			"iface", iface, "cidr", cidr, "err", err,
+			"stderr", strings.TrimSpace(stderr.String()))
 		return nil
 	}
-	return parseArpScanOutput(string(out))
+	if s := strings.TrimSpace(stderr.String()); s != "" {
+		logger.Debug("arp-scan stderr", "iface", iface, "cidr", cidr, "msg", s)
+	}
+	hosts := parseArpScanOutput(stdout.String())
+	logger.Debug("arp-scan ok", "iface", iface, "cidr", cidr, "found", len(hosts))
+	return hosts
 }
 
 func parseArpScanOutput(text string) []Discovery {
@@ -60,35 +77,11 @@ func parseArpScanOutput(text string) []Discovery {
 	return hosts
 }
 
-// activeIPv4Ifaces returns the names of all interfaces that are up, non-
-// loopback, and have at least one routable IPv4 address. Used as the implicit
-// scan allow-list when the user hasn't picked specific interfaces.
-func activeIPv4Ifaces() []string {
-	ifaces, err := net.Interfaces()
-	if err != nil {
-		return nil
-	}
-	var out []string
-	for _, ifc := range ifaces {
-		if ifc.Flags&net.FlagUp == 0 || ifc.Flags&net.FlagLoopback != 0 {
-			continue
-		}
-		addrs, _ := ifc.Addrs()
-		for _, a := range addrs {
-			ipn, ok := a.(*net.IPNet)
-			if !ok {
-				continue
-			}
-			ip4 := ipn.IP.To4()
-			if ip4 == nil || ip4.IsLinkLocalUnicast() || ip4.IsLoopback() {
-				continue
-			}
-			out = append(out, ifc.Name)
-			break
-		}
-	}
-	return out
-}
+// maxAutoPrefix is the smallest prefix length (largest subnet) we'll derive
+// from an interface's own netmask. Anything wider (e.g. Docker's /16) is
+// narrowed to a /24 centred on the interface's IP — arp-scanning 65k hosts
+// busts the per-invocation timeout and produces nothing useful.
+const maxAutoPrefix = 22
 
 // ifaceIPv4Networks returns the CIDR of every IPv4 address bound to the named
 // interface (e.g. "192.168.1.0/24"). Used when the user picks an iface to scan
@@ -117,7 +110,11 @@ func ifaceIPv4Networks(name string) []string {
 		if ip4 == nil || ip4.IsLinkLocalUnicast() {
 			continue
 		}
-		network := &net.IPNet{IP: ip4.Mask(ipn.Mask), Mask: ipn.Mask}
+		mask := ipn.Mask
+		if ones, bits := mask.Size(); bits == 32 && ones < maxAutoPrefix {
+			mask = net.CIDRMask(24, 32)
+		}
+		network := &net.IPNet{IP: ip4.Mask(mask), Mask: mask}
 		s := network.String()
 		if seen[s] {
 			continue

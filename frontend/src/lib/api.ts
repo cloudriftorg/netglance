@@ -17,11 +17,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   setupStatus: () => request<{ setupComplete: boolean }>('/api/setup/status'),
   setup: (body: SetupBody) =>
-    request<{ username: string }>('/api/setup', { method: 'POST', body: JSON.stringify(body) }),
-  login: (username: string, password: string) =>
-    request<{ username: string }>('/api/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
+    request<{ ok: boolean }>('/api/setup', { method: 'POST', body: JSON.stringify(body) }),
+  login: (password: string) =>
+    request<{ ok: boolean }>('/api/login', { method: 'POST', body: JSON.stringify({ password }) }),
   logout: () => request<{ ok: boolean }>('/api/logout', { method: 'POST' }),
-  me: () => request<{ username: string }>('/api/me'),
+  me: () => request<{ ok: boolean }>('/api/me'),
 
   listHosts: (q?: HostFilter) => {
     const params = new URLSearchParams();
@@ -46,6 +46,9 @@ export const api = {
   testSMTP: () => request<{ ok: boolean }>('/api/settings/test-smtp', { method: 'POST' }),
 
   listInterfaces: () => request<NetInterface[]>('/api/system/interfaces'),
+
+  resetApp: (password: string) =>
+    request<{ ok: boolean }>('/api/admin/reset', { method: 'POST', body: JSON.stringify({ password }) }),
 };
 
 export interface NetInterface {
@@ -119,11 +122,7 @@ export interface Settings {
 }
 
 export interface SetupBody {
-  username: string;
   password: string;
-  networks?: NetworkConfig[];
-  smtp?: SMTPConfig;
-  scanEverySeconds?: number;
 }
 
 export interface HostFilter {

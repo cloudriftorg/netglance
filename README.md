@@ -1,37 +1,38 @@
 # Netglance
 
-> ⚠️ **Work in progress · uso personale**
+> ⚠️ **Work in progress**
 >
-> Progetto in fase di sviluppo, scritto in **vibe coding** (pair-programming
-> con un LLM) per la mia rete homelab. **Non pensato per la produzione di
-> qualcun altro** — manca testing serio e l'API può cambiare in modo non
-> retrocompatibile da un commit all'altro. Sentiti libero di clonarlo,
-> guardarci dentro, mandare PR, ma non aspettarti garanzie di stabilità.
+> Project under active development. **Use at your own risk** — there is no
+> serious test coverage and the API/data model can change in
+> backwards-incompatible ways from one commit to the next. Feel free to
+> clone, poke around and send PRs, but don't expect stability guarantees.
 
-Self-hosted LAN inventory: scopre i dispositivi sulla rete via `arp-scan`,
-traccia online/offline, manda notifiche email. Single binary Go + SQLite +
-frontend React embedded, distribuito come singola immagine Docker.
+Self-hosted LAN inventory: discovers devices on the network via
+`arp-scan`, tracks online/offline transitions and sends email
+notifications. Single Go binary + SQLite + embedded React frontend,
+shipped as one Docker image.
 
-> Ispirato a [WatchYourLAN](https://github.com/aceberg/WatchYourLAN) e
-> [NetAlertX](https://github.com/jokob-sk/NetAlertX), riprogettato per
-> essere leggero, multi-VLAN-aware e usabile dal telefono (PWA installabile).
+Inspired by [WatchYourLAN](https://github.com/aceberg/WatchYourLAN) and
+[NetAlertX](https://github.com/jokob-sk/NetAlertX), redesigned to be
+lightweight, multi-VLAN-aware and usable from a phone (installable PWA).
 
-## Caratteristiche
+## Features
 
-- 🔍 **Scan ARP-based** (`arp-scan`) — stessa metodologia di WatchYourLAN, con UI moderna e schema multi-VLAN
-- 🏷️ Tag VLAN per device, configurabile da UI
-- 📈 Storico online/offline + eventi per host
-- 📧 Notifiche email (SMTP plain / STARTTLS / SMTPS) con endpoint test
-- ⏱️ Auto-scan configurabile (intervallo + on/off toggle), trigger manuale dall'UI
-- 📱 PWA mobile-first, installabile su iOS/Android
-- 🔐 Login admin locale, sessione cookie HttpOnly, `Secure` proxy-aware
-- 🐳 Single container Alpine, ~30 MB
-- ⚙️ Zero env vars per la logica: tutto via wizard al primo avvio
+- 🔍 **ARP-based scanning** (`arp-scan`) with a modern UI and a multi-VLAN data model
+- 🏷️ Per-device VLAN tags, configurable from the UI
+- 📈 Online/offline history and per-host events
+- 📧 Email notifications (SMTP plain / STARTTLS / SMTPS) with a test endpoint
+- ⏱️ Configurable auto-scan (interval + on/off toggle), manual trigger from the UI
+- 📱 Mobile-first PWA, installable on iOS/Android
+- 🌓 Light / dark / system theme, persisted across reloads
+- 🔐 Local admin login, HttpOnly session cookie, proxy-aware `Secure` flag
+- 🐳 Single Alpine container, ~30 MB
+- ⚙️ No env vars for app logic — everything is configured via a first-run wizard
 
-## Quick start (produzione / homelab)
+## Quick start
 
-`network_mode: host` è obbligatorio: `arp-scan` invia ARP request raw e ha
-bisogno della network stack reale dell'host, non di una bridge Docker.
+`network_mode: host` is required: `arp-scan` sends raw ARP requests and
+needs the host's real network stack, not a Docker bridge.
 
 ```yaml
 # compose.yml
@@ -51,74 +52,70 @@ volumes:
 docker compose up -d
 ```
 
-Apri `http://<host>:8080` → wizard di setup (admin + reti + SMTP) → fatto.
+Open `http://<host>:8080` → setup wizard (admin + networks + SMTP) → done.
 
-### Scan multi-VLAN
+### Multi-VLAN scanning
 
-`arp-scan` è strettamente L2: vede solo gli host nel broadcast domain
-dell'interfaccia su cui gira. Per scansionare VLAN aggiuntive, l'host
-Docker deve avere una sub-interface (con IP) in ogni VLAN che vuoi
-coprire. Una volta su, basta aggiungere ogni CIDR + VLAN ID nelle
-Settings di netglance — l'app trova in automatico l'interfaccia giusta
-per ciascuna rete.
+`arp-scan` is strictly L2: it only sees hosts in the broadcast domain of
+the interface it runs on. To scan additional VLANs, the Docker host must
+have a sub-interface (with an IP) in each VLAN you want to cover. Once
+that is in place, add each CIDR + VLAN ID under Settings — the app
+automatically picks the right interface for each network.
 
-Setup passo-passo (Proxmox + Debian) in
+Step-by-step setup (Proxmox + Debian) in
 [`docs/multi-vlan-scanning.md`](docs/multi-vlan-scanning.md).
 
 ## Reverse proxy (Caddy / Traefik / nginx)
 
-Netglance riconosce `X-Forwarded-Proto: https` e imposta correttamente il
-flag `Secure` sui cookie di sessione.
+Netglance honors `X-Forwarded-Proto: https` and sets the `Secure` flag on
+session cookies accordingly.
 
 ```caddyfile
 netglance.example.com {
-    reverse_proxy 192.168.1.21:8080
+    reverse_proxy <netglance-host>:8080
 }
 ```
 
-## Sviluppo locale
+## Local development
 
-Serve solo Docker. Niente Go, niente Node sul Mac.
+Only Docker is required.
 
 ```bash
-make local         # build + run dell'app intera in Docker, http://localhost:8080
-make logs          # tail dei log
-make local-stop    # spegne
-make reset         # azzera il volume DB (next run = setup fresco)
+make local         # build + run the whole app in Docker, http://localhost:8080
+make logs          # tail logs
+make local-stop    # stop
+make reset         # wipe the local DB volume (next run = fresh setup)
 ```
 
-> **macOS**: il container vede solo la rete interna di Docker Desktop, non
-> la LAN del Mac (limite di Docker Desktop). UI, settings, auth, migrations,
-> vendor lookup, scan loop → tutto testabile. Per scan reale su LAN/VLAN
-> serve un host Linux con `network_mode: host`.
+> **macOS note**: the container only sees Docker Desktop's internal
+> network, not the host's LAN. UI, settings, auth, migrations, vendor
+> lookup and the scan loop are all testable. Real LAN/VLAN scanning
+> requires a Linux host with `network_mode: host`.
 
-### Iterazione veloce sulla UI
+### Frontend-only iteration
 
-Per cambi al solo frontend, dev server con HMR e proxy `/api` verso un
-backend già attivo (default: VM in `192.168.1.21:8080`):
+For frontend changes, a Vite dev server with HMR proxies `/api` to a
+running backend:
 
 ```bash
-make ui                                  # default backend
-make ui BACKEND=http://localhost:8080    # contro un netglance locale
+make ui                                  # default backend (override via BACKEND=...)
+make ui BACKEND=http://localhost:8080    # against a local netglance
 ```
 
-Salvi un `.tsx`, la pagina si aggiorna in <1 s. Nessun rebuild.
-
-### Altri target utili
+### Other useful targets
 
 ```bash
-make build     # binario statico ./netglance (frontend embedded)
-make docker    # immagine netglance:dev
+make build     # static binary ./netglance (frontend embedded)
+make docker    # build the netglance:dev image
 make test      # go test ./...
-make help      # elenco completo
+make help      # full target list
 ```
 
-## Documentazione
+## Documentation
 
-- [docs/PLAN.md](docs/PLAN.md) — piano originale di progettazione
-- [docs/multi-vlan-scanning.md](docs/multi-vlan-scanning.md) — setup VLAN sub-interfaces
+- [docs/multi-vlan-scanning.md](docs/multi-vlan-scanning.md) — VLAN sub-interface setup
 - [CHANGELOG.md](CHANGELOG.md) — release notes
 
-## Licenza
+## License
 
-MIT — vedi [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE).

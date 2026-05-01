@@ -12,9 +12,29 @@ type ifaceInfo struct {
 	Addresses []string `json:"addresses"`
 }
 
+// virtualBridgePrefixes lists name prefixes / exact names that we hide from
+// the interface picker. These are Docker-managed bridges, container vNICs,
+// and similar virtual interfaces — scanning a /16 bridge with arp-scan just
+// times out and produces nothing useful.
+var virtualBridgePrefixes = []string{"br-", "veth", "virbr", "cni", "flannel", "cali", "tailscale", "wg", "tun", "tap"}
+
+func isVirtualIface(name string) bool {
+	if name == "docker0" {
+		return true
+	}
+	for _, p := range virtualBridgePrefixes {
+		if strings.HasPrefix(name, p) {
+			return true
+		}
+	}
+	return false
+}
+
 // listInterfacesHandler returns active, non-loopback interfaces with at least
-// one IPv4 address. Used by the Settings UI to let users pick an explicit
-// interface for a given network instead of relying on CIDR auto-detection.
+// one IPv4 address. Used by Settings (and the second step of the setup wizard)
+// to let users pick which interfaces netglance should scan. Authentication is
+// enforced via the parent route group — this is the only sensitive action
+// here, and the setup wizard hits it after the admin password is set.
 func listInterfacesHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, listIfaces())
@@ -29,6 +49,9 @@ func listIfaces() []ifaceInfo {
 	}
 	for _, ifc := range ifaces {
 		if ifc.Flags&net.FlagUp == 0 || ifc.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		if isVirtualIface(ifc.Name) {
 			continue
 		}
 		addrs, _ := ifc.Addrs()
