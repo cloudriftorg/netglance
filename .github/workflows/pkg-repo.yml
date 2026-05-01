@@ -81,7 +81,11 @@ jobs:
             NETGLANCE_DESC=$(tr '\n' ' ' < deploy/freebsd-port/pkg-descr | sed 's/  */ /g; s/ $//')
             OSNG_DESC=$(tr '\n' ' ' < deploy/opnsense-plugin/pkg-descr | sed 's/  */ /g; s/ $//')
 
-            cat > /tmp/netglance-manifest <<MAN
+            # Strip the workflow's leading indent before pkg sees the
+            # manifest — UCL is whitespace-tolerant in theory but gets
+            # confused by deeply-indented blocks in practice. Also avoid
+            # inline { ... } objects in deps for the same reason.
+            sed 's/^            //' > /tmp/netglance-manifest <<MAN
             name: netglance
             version: "$VERSION"
             origin: net-mgmt/netglance
@@ -94,7 +98,9 @@ jobs:
             licenselogic: single
             licenses: [MIT]
             deps:
-              arp-scan: { origin: net-mgmt/arp-scan, version: "*" }
+              arp-scan:
+                origin: net-mgmt/arp-scan
+                version: "*"
             users: [netglance]
             groups: [netglance]
             files:
@@ -110,12 +116,15 @@ jobs:
                 chown netglance:netglance /var/db/netglance
                 chmod 750 /var/db/netglance
             MAN
+            echo "─── netglance manifest ───"
+            cat /tmp/netglance-manifest
+            echo "─── /netglance manifest ───"
             pkg create -M /tmp/netglance-manifest -r /tmp/pkgroot -o /tmp/pkgs
 
             # ── os-netglance plugin pkg ────────────────────────────────
             mkdir -p /tmp/plugroot
             cp -R deploy/opnsense-plugin/src/. /tmp/plugroot/
-            cat > /tmp/os-netglance-manifest <<MAN
+            sed 's/^            //' > /tmp/os-netglance-manifest <<MAN
             name: os-netglance
             version: "$VERSION"
             origin: opnsense/os-netglance
@@ -128,8 +137,13 @@ jobs:
             licenselogic: single
             licenses: [MIT]
             deps:
-              netglance: { origin: net-mgmt/netglance, version: "$VERSION" }
+              netglance:
+                origin: net-mgmt/netglance
+                version: "$VERSION"
             MAN
+            echo "─── os-netglance manifest ───"
+            cat /tmp/os-netglance-manifest
+            echo "─── /os-netglance manifest ───"
             pkg create -M /tmp/os-netglance-manifest -r /tmp/plugroot -o /tmp/pkgs
 
             # ── Build a signed pkg repo ────────────────────────────────
