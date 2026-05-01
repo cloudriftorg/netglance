@@ -1,5 +1,15 @@
 # Netglance
 
+> ⚠️ **Work in progress · uso personale**
+>
+> Progetto in fase di sviluppo, scritto interamente in **vibe coding**
+> (pair-programming con un LLM) per la mia rete homelab. Per ora **non è
+> pensato per essere usato da altri** — manca testing serio, parti del
+> piano originale non sono ancora cablate (notifier, OPNsense client),
+> e l'API può cambiare in modo non retrocompatibile da un commit
+> all'altro. Sentiti libero di guardarci dentro e prendere ispirazione,
+> ma non aspettarti garanzie di stabilità o supporto.
+
 Self-hosted, mobile-first LAN inventory: scopre i dispositivi sulla tua rete, traccia online/offline, manda notifiche email. Single binary Go + SQLite + frontend React embedded — distribuito come immagine Docker singola.
 
 > Ispirato a WatchYourLAN e NetAlertX, riprogettato per essere leggero, multi-VLAN-aware e bello da usare anche dal telefono (PWA installabile).
