@@ -73,12 +73,20 @@ jobs:
             chmod +x /tmp/pkgroot/usr/local/etc/rc.d/netglance
 
             mkdir -p /tmp/pkgs
+
+            # pkg's UCL parser doesn't accept literal newlines in single-line
+            # quoted strings, so flatten the multi-line pkg-descr into one
+            # line for the desc: field. The full text is still readable in
+            # the source repo.
+            NETGLANCE_DESC=$(tr '\n' ' ' < deploy/freebsd-port/pkg-descr | sed 's/  */ /g; s/ $//')
+            OSNG_DESC=$(tr '\n' ' ' < deploy/opnsense-plugin/pkg-descr | sed 's/  */ /g; s/ $//')
+
             cat > /tmp/netglance-manifest <<MAN
             name: netglance
             version: "$VERSION"
             origin: net-mgmt/netglance
             comment: "LAN host discovery and inventory daemon"
-            desc: "$(cat deploy/freebsd-port/pkg-descr)"
+            desc: "$NETGLANCE_DESC"
             maintainer: massimo.schiavo.p@gmail.com
             www: https://github.com/netglance/netglance
             prefix: /usr/local
@@ -112,7 +120,7 @@ jobs:
             version: "$VERSION"
             origin: opnsense/os-netglance
             comment: "OPNsense plugin for netglance"
-            desc: "$(cat deploy/opnsense-plugin/pkg-descr)"
+            desc: "$OSNG_DESC"
             maintainer: massimo.schiavo.p@gmail.com
             www: https://github.com/netglance/netglance
             prefix: /
