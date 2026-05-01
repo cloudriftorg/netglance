@@ -13,12 +13,34 @@ The web UI itself remains accessible directly on the configured port (default
 This is a one-time setup. SSH into OPNsense as `root` (enable SSH first under
 **System → Settings → Administration**).
 
+The repo can be **unsigned** (simpler, fine for personal use over HTTPS) or
+**signed** (recommended if you publish to others). Pick one.
+
+### Option A — Unsigned (default, simpler)
+
+```sh
+cat > /usr/local/etc/pkg/repos/netglance.conf <<'EOF'
+netglance: {
+  url: "https://netglance.github.io/netglance/${ABI}",
+  signature_type: "none",
+  enabled: yes
+}
+EOF
+pkg update
+```
+
+You're trusting the GitHub Pages HTTPS certificate (which is fine — pkg
+verifies it). The risk lives upstream: if someone compromises the GitHub
+account hosting the repo, malicious packages would install without a
+warning. For a personal/internal repo this is usually acceptable.
+
+### Option B — Signed with a public key
+
 ```sh
 # Trust the netglance signing key
 fetch -o /usr/local/etc/pkg/keys/netglance.pub \
   https://netglance.github.io/netglance/repo.pub
 
-# Tell pkg about the repo
 cat > /usr/local/etc/pkg/repos/netglance.conf <<'EOF'
 netglance: {
   url: "https://netglance.github.io/netglance/${ABI}",
@@ -30,6 +52,10 @@ EOF
 
 pkg update
 ```
+
+Note: this only works if the maintainer has set the `PKG_SIGN_KEY` GitHub
+secret (see "Maintainer workflow" below). Without it the published repo is
+unsigned and Option B will fail with "signature mismatch".
 
 ## 2. Install the plugin
 
@@ -108,7 +134,13 @@ from. It uses only `pkg` on the OPNsense side — nothing extra to install.
 
 ## One-time setup
 
-### 1. Generate the repo signing key (locally)
+### 1. (Optional) Generate the repo signing key
+
+Skip this whole step for an unsigned repo — the CI workflow detects the
+absence of the `PKG_SIGN_KEY` secret and produces unsigned packages
+automatically. Users will install via Option A above.
+
+If you do want signing:
 
 ```sh
 mkdir -p ~/.netglance-signing && cd ~/.netglance-signing
@@ -117,13 +149,16 @@ openssl rsa -in repo.key -pubout > repo.pub
 chmod 600 repo.key
 ```
 
-The private `repo.key` stays on your workstation. If lost, you can
-generate a new one but every existing user has to re-trust it.
+The private `repo.key` stays on your workstation. **Back it up to a
+password manager** (1Password / Bitwarden secure note — the file is
+~1.7 KB) so swapping machines or losing the disk doesn't lock out your
+existing users. If lost: generate a new key, every existing user has to
+fetch the new `repo.pub` and `pkg update`.
 
-### 2. Add the key as a GitHub secret
+### 2. (Optional) Add the key as a GitHub secret
 
-Repo on GitHub → **Settings → Secrets and variables → Actions →
-New repository secret**:
+Only if you generated a key above. Repo on GitHub →
+**Settings → Secrets and variables → Actions → New repository secret**:
 - Name: `PKG_SIGN_KEY`
 - Value: the full contents of `repo.key` (including the BEGIN/END lines)
 
