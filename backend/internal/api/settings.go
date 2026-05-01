@@ -44,7 +44,7 @@ func getSettingsHandler(st *store.Store) http.HandlerFunc {
 	}
 }
 
-func putSettingsHandler(st *store.Store) http.HandlerFunc {
+func putSettingsHandler(st *store.Store, managed bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req settingsBundle
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -54,6 +54,17 @@ func putSettingsHandler(st *store.Store) http.HandlerFunc {
 		current := loadSettings(st)
 		if req.SMTP != nil && req.SMTP.Password == "********" && current.SMTP != nil {
 			req.SMTP.Password = current.SMTP.Password
+		}
+		// In managed mode (OPNsense plugin), force the managed fields back to
+		// whatever's currently in the store — the user's edits to those fields
+		// in the React UI must not stick, since the OPNsense plugin will rewrite
+		// them on next service start anyway. The frontend already renders them
+		// read-only via /api/system/managed, this is the server-side guard.
+		if managed {
+			req.Networks = current.Networks
+			req.ScanEnabled = current.ScanEnabled
+			req.ScanEverySeconds = current.ScanEverySeconds
+			req.ScanIfaces = current.ScanIfaces
 		}
 		_ = st.SetSetting("networks", req.Networks)
 		_ = st.SetSetting("scanEnabled", req.ScanEnabled)

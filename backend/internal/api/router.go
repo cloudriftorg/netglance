@@ -11,7 +11,14 @@ import (
 	"github.com/netglance/netglance/internal/store"
 )
 
-func NewRouter(st *store.Store, webuiHandler http.Handler) http.Handler {
+// RouterOptions carries cross-handler runtime flags. Currently just Managed,
+// which signals that the OPNsense plugin owns part of the settings; the API
+// surfaces it via /api/system/managed and rejects writes to those fields.
+type RouterOptions struct {
+	Managed bool
+}
+
+func NewRouter(st *store.Store, webuiHandler http.Handler, opts RouterOptions) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
@@ -40,9 +47,10 @@ func NewRouter(st *store.Store, webuiHandler http.Handler) http.Handler {
 			r.Get("/scan/status", scanStatusHandler(st))
 
 			r.Get("/system/interfaces", listInterfacesHandler())
+			r.Get("/system/managed", managedHandler(opts.Managed))
 
 			r.Get("/settings", getSettingsHandler(st))
-			r.Put("/settings", putSettingsHandler(st))
+			r.Put("/settings", putSettingsHandler(st, opts.Managed))
 			r.Post("/settings/test-smtp", testSMTPHandler(st))
 
 			r.Post("/admin/reset", resetHandler(st))

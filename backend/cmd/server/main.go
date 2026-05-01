@@ -52,6 +52,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Apply env-supplied overrides into the persistent settings store *before*
+	// the scanner loop reads them. This is how the OPNsense plugin pushes its
+	// config: it renders /usr/local/etc/netglance/netglance.env from the
+	// config.xml model, the rc.d script sources it, and on next start the
+	// values land in SQLite. NETGLANCE_MANAGED=1 then locks the corresponding
+	// fields against modification via the UI/API.
+	applyBootstrap(st, cfg)
+
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
@@ -71,7 +79,7 @@ func main() {
 		})
 	}()
 
-	router := api.NewRouter(st, webui.Handler())
+	router := api.NewRouter(st, webui.Handler(), api.RouterOptions{Managed: cfg.Managed})
 	srv := &http.Server{
 		Addr:              cfg.Bind,
 		Handler:           router,
@@ -121,6 +129,29 @@ type netCfg struct {
 	Name   string `json:"name"`
 	CIDR   string `json:"cidr"`
 	VLANID int    `json:"vlanId,omitempty"`
+}
+
+func applyBootstrap(st *store.Store, cfg config.Config) {
+	b := cfg.Bootstrap
+	if b.ScanIfaces != nil {
+		_ = st.SetSetting("scanIfaces", *b.ScanIfaces)
+	}
+	if b.ScanEverySeconds != nil {
+		_ = st.SetSetting("scanEverySeconds", *b.ScanEverySeconds)
+	}
+	if b.ScanEnabled != nil {
+		_ = st.SetSetting("scanEnabled", *b.ScanEnabled)
+	}
+	if b.Networks != nil {
+		// Translate config.NetworkOverride → the same on-disk shape that
+		// the API/scanner expect (see netCfg below and api.NetworkConfig).
+		// Keeping the same JSON keys avoids a settings migration.
+		converted := make([]netCfg, 0, len(*b.Networks))
+		for _, n := range *b.Networks {
+			converted = append(converted, netCfg{Name: n.Name, CIDR: n.CIDR, VLANID: n.VLANID})
+		}
+		_ = st.SetSetting("networks", converted)
+	}
 }
 
 func loadScannerSettings(st *store.Store) scanner.Settings {
