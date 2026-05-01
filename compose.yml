@@ -3,32 +3,18 @@
 #
 # For local development against your code, run `make docker` and swap
 # the image to `netglance:dev`.
+#
+# `network_mode: host` is required so the scanner sees the host's network
+# stack (LAN subnets, /proc/net/arp). Without it the container only sees
+# the Docker bridge.
 
 services:
   netglance:
     image: ghcr.io/massimoschiavop/netglance:latest
-    container_name: netglance
     restart: unless-stopped
     network_mode: host
-    cap_add:
-      - NET_RAW
-      - NET_ADMIN
-    security_opt:
-      - no-new-privileges:true
-    read_only: true
-    tmpfs:
-      - /tmp:size=16M
-    mem_limit: 256m
-    cpus: 1.0
-    pids_limit: 256
     volumes:
       - netglance_data:/data
-    healthcheck:
-      test: ["CMD", "/netglance", "healthcheck"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
 
 volumes:
   netglance_data:

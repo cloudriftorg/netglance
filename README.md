@@ -23,31 +23,16 @@ Self-hosted, mobile-first LAN inventory: scopre i dispositivi sulla tua rete, tr
 services:
   netglance:
     image: ghcr.io/massimoschiavop/netglance:latest
-    container_name: netglance
     restart: unless-stopped
     network_mode: host
-    cap_add:
-      - NET_RAW
-      - NET_ADMIN
-    security_opt:
-      - no-new-privileges:true
-    read_only: true
-    tmpfs:
-      - /tmp
-    mem_limit: 256m
-    cpus: 1.0
     volumes:
       - netglance_data:/data
-    healthcheck:
-      test: ["CMD", "/netglance", "healthcheck"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
 
 volumes:
   netglance_data:
 ```
+
+`HEALTHCHECK`, distroless, nonroot user e ownership di `/data` sono già nell'immagine — non serve ripeterli nel compose. Se vuoi hardening extra (read_only, security_opt, resource limits) puoi aggiungerli, ma non sono necessari per il funzionamento.
 
 ```bash
 docker compose up -d
