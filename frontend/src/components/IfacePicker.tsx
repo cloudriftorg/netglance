@@ -5,11 +5,13 @@ export default function IfacePicker({
   value,
   ifaces,
   onChange,
+  disabled = false,
   emptyHelpText = 'Empty = no interfaces will be scanned.',
 }: {
   value: string[];
   ifaces: NetInterface[];
   onChange: (v: string[]) => void;
+  disabled?: boolean;
   emptyHelpText?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -52,8 +54,9 @@ export default function IfacePicker({
       <div ref={ref} className="relative">
         <button
           type="button"
-          onClick={() => setOpen((o) => !o)}
-          className="input flex w-full items-center justify-between text-left"
+          onClick={() => !disabled && setOpen((o) => !o)}
+          disabled={disabled}
+          className="input flex w-full items-center justify-between text-left disabled:cursor-not-allowed disabled:opacity-60"
           aria-haspopup="listbox"
           aria-expanded={open}
         >

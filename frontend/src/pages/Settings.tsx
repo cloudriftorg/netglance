@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { api, Settings as SettingsT, NetworkConfig, NetInterface } from '../lib/api';
+import { api, Settings as SettingsT, NetworkConfig, NetInterface, ManagedInfo } from '../lib/api';
 import { errMessage, useToast } from '../components/Toast';
 import IfacePicker from '../components/IfacePicker';
 
@@ -9,16 +9,22 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [ifaces, setIfaces] = useState<NetInterface[]>([]);
   const [resetOpen, setResetOpen] = useState(false);
+  const [managed, setManaged] = useState<ManagedInfo>({ managed: false, fields: [] });
 
   useEffect(() => {
     api.getSettings().then(setS).catch((e) => toast.error(errMessage(e, 'Load failed')));
     api.listInterfaces().then(setIfaces).catch(() => {
       /* non-fatal: combo just shows the saved value */
     });
+    api.managed().then(setManaged).catch(() => {
+      /* non-fatal: assume not managed */
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!s) return <p className="text-sm text-slate-500">Loading…</p>;
+
+  const isManaged = (k: string) => managed.managed && managed.fields.includes(k);
 
   function update<K extends keyof SettingsT>(key: K, value: SettingsT[K]) {
     setS((cur) => (cur ? { ...cur, [key]: value } : cur));
@@ -61,6 +67,14 @@ export default function SettingsPage() {
         </button>
       </div>
 
+      {managed.managed && (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+          <strong>Managed by OPNsense.</strong> Scan interfaces, networks, interval and listen port
+          are read-only here — edit them from <em>Services → Netglance</em> in your OPNsense panel.
+          Notifications, SMTP and per-host preferences remain editable.
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Section
           title="Scan"
@@ -70,6 +84,7 @@ export default function SettingsPage() {
             value={s.scanIfaces ?? []}
             ifaces={ifaces}
             onChange={(v) => update('scanIfaces', v)}
+            disabled={isManaged('scanIfaces')}
           />
           <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-3">
             <label className="block space-y-1.5 text-sm">
@@ -81,6 +96,7 @@ export default function SettingsPage() {
                 <input
                   type="checkbox"
                   checked={s.scanEnabled}
+                  disabled={isManaged('scanEnabled')}
                   onChange={(e) => update('scanEnabled', e.target.checked)}
                 />
                 Automatic scan
@@ -90,7 +106,7 @@ export default function SettingsPage() {
               label="Interval (s)"
               min={10}
               value={s.scanEverySeconds}
-              disabled={!s.scanEnabled}
+              disabled={!s.scanEnabled || isManaged('scanEverySeconds')}
               onChange={(v) => update('scanEverySeconds', v)}
             />
             <NumberField
@@ -118,10 +134,12 @@ export default function SettingsPage() {
                 className="input col-span-11 sm:col-span-4"
                 placeholder="Name (e.g. trusted)"
                 value={n.name}
+                disabled={isManaged('networks')}
                 onChange={(e) => updateNet(i, { name: e.target.value })}
               />
               <button
-                className="col-span-1 text-sm text-red-600 sm:order-last"
+                className="col-span-1 text-sm text-red-600 disabled:opacity-40 sm:order-last"
+                disabled={isManaged('networks')}
                 onClick={() => update('networks', s.networks.filter((_, j) => j !== i))}
                 aria-label="Remove"
               >
@@ -131,6 +149,7 @@ export default function SettingsPage() {
                 className="input col-span-8 sm:col-span-5"
                 placeholder="192.168.1.0/24"
                 value={n.cidr}
+                disabled={isManaged('networks')}
                 onChange={(e) => updateNet(i, { cidr: e.target.value })}
               />
               <input
@@ -138,6 +157,7 @@ export default function SettingsPage() {
                 inputMode="numeric"
                 placeholder="VLAN"
                 value={n.vlanId ?? ''}
+                disabled={isManaged('networks')}
                 onChange={(e) =>
                   updateNet(i, {
                     vlanId: e.target.value ? Number(e.target.value.replace(/\D/g, '')) : undefined,
@@ -147,7 +167,8 @@ export default function SettingsPage() {
             </div>
           ))}
           <button
-            className="btn-secondary text-sm"
+            className="btn-secondary text-sm disabled:opacity-50"
+            disabled={isManaged('networks')}
             onClick={() => update('networks', [...s.networks, { name: '', cidr: '' }])}
           >
             + Add network

@@ -47,6 +47,7 @@ export const api = {
   testSMTP: () => request<{ ok: boolean }>('/api/settings/test-smtp', { method: 'POST' }),
 
   listInterfaces: () => request<NetInterface[]>('/api/system/interfaces'),
+  managed: () => request<ManagedInfo>('/api/system/managed'),
 
   resetApp: (password: string) =>
     request<{ ok: boolean }>('/api/admin/reset', { method: 'POST', body: JSON.stringify({ password }) }),
@@ -120,6 +121,11 @@ export interface Settings {
   offlineAfter: number;
   smtp?: SMTPConfig;
   notify: NotifyToggles;
+}
+
+export interface ManagedInfo {
+  managed: boolean;
+  fields: string[];
 }
 
 export interface SetupBody {
