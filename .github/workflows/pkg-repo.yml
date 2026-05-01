@@ -56,9 +56,12 @@ jobs:
             mkdir -p /tmp/pkgroot/usr/local/etc/netglance
             mkdir -p /tmp/pkgroot/var/db/netglance
 
+            # -buildvcs=false because vmactions rsyncs the workspace into
+            # the VM without the .git dir, so Go's default VCS stamping
+            # would fail with "error obtaining VCS status: exit status 1".
             cd backend
             CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64 \
-              go build -trimpath \
+              go build -trimpath -buildvcs=false \
                 -ldflags="-s -w -X main.version=$VERSION" \
                 -o /tmp/pkgroot/usr/local/sbin/netglance \
                 ./cmd/server
