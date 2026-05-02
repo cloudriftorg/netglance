@@ -26,3 +26,6 @@ data/
 # Env
 .env
 .env.local
+
+# Claude Code session artifacts
+.claude/
