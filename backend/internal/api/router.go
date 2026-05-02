@@ -16,6 +16,11 @@ import (
 // surfaces it via /api/system/managed and rejects writes to those fields.
 type RouterOptions struct {
 	Managed bool
+	// ReBootstrap re-applies env-supplied settings (NETGLANCE_*) into the
+	// store. Called after /admin/reset so managed installs (OPNsense) get
+	// their orchestrator-owned fields back without waiting for a daemon
+	// restart. Optional — left nil for non-managed deployments.
+	ReBootstrap func(*store.Store)
 }
 
 func NewRouter(st *store.Store, webuiHandler http.Handler, opts RouterOptions) http.Handler {
@@ -58,7 +63,7 @@ func NewRouter(st *store.Store, webuiHandler http.Handler, opts RouterOptions) h
 			r.Put("/settings", putSettingsHandler(st, opts.Managed))
 			r.Post("/settings/test-smtp", testSMTPHandler(st))
 
-			r.Post("/admin/reset", resetHandler(st))
+			r.Post("/admin/reset", resetHandler(st, opts.ReBootstrap))
 		})
 	})
 

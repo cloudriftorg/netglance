@@ -79,7 +79,13 @@ func main() {
 		})
 	}()
 
-	router := api.NewRouter(st, webui.Handler(), api.RouterOptions{Managed: cfg.Managed})
+	router := api.NewRouter(st, webui.Handler(), api.RouterOptions{
+		Managed: cfg.Managed,
+		// Re-seed env-supplied settings after a /admin/reset so OPNsense
+		// users don't lose their scanIfaces (which they can only set
+		// from the firewall plugin, not the netglance UI).
+		ReBootstrap: func(s *store.Store) { applyBootstrap(s, cfg) },
+	})
 	srv := &http.Server{
 		Addr:              cfg.Bind,
 		Handler:           router,

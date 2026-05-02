@@ -24,13 +24,13 @@ export default function Setup({ onDone }: { onDone: () => void }) {
   }
 
   return step === 'password' ? (
-    <PasswordStep onNext={afterPassword} />
+    <PasswordStep onNext={afterPassword} totalSteps={managed ? 1 : 2} />
   ) : (
     <InterfacesStep onDone={onDone} />
   );
 }
 
-function PasswordStep({ onNext }: { onNext: () => void }) {
+function PasswordStep({ onNext, totalSteps }: { onNext: () => void; totalSteps: number }) {
   const toast = useToast();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -57,7 +57,7 @@ function PasswordStep({ onNext }: { onNext: () => void }) {
   }
 
   return (
-    <Wizard step={1} title="Welcome to Netglance" subtitle="Set the admin password.">
+    <Wizard step={1} totalSteps={totalSteps} title="Welcome to Netglance" subtitle="Set the admin password.">
       <form onSubmit={submit} className="space-y-5">
         <Field label="Password">
           <input
@@ -127,6 +127,7 @@ function InterfacesStep({ onDone }: { onDone: () => void }) {
   return (
     <Wizard
       step={2}
+      totalSteps={2}
       title="Pick interfaces to scan"
       subtitle="Netglance will only ARP-scan the interfaces you select. You can change this later in Settings."
     >
@@ -151,11 +152,13 @@ function InterfacesStep({ onDone }: { onDone: () => void }) {
 
 function Wizard({
   step,
+  totalSteps,
   title,
   subtitle,
   children,
 }: {
   step: 1 | 2;
+  totalSteps: number;
   title: string;
   subtitle: string;
   children: React.ReactNode;
@@ -170,11 +173,15 @@ function Wizard({
           </div>
           {children}
         </div>
-        <div className="mt-4 flex items-center justify-center gap-2">
-          <Pip active={step >= 1} done={step > 1} label="1" />
-          <span className="h-px w-6 bg-slate-200 dark:bg-slate-700" />
-          <Pip active={step >= 2} done={false} label="2" />
-        </div>
+        {/* Hide the step indicator entirely when there's only one step
+            (managed installs that bypass the interface picker). */}
+        {totalSteps > 1 && (
+          <div className="mt-4 flex items-center justify-center gap-2">
+            <Pip active={step >= 1} done={step > 1} label="1" />
+            <span className="h-px w-6 bg-slate-200 dark:bg-slate-700" />
+            <Pip active={step >= 2} done={false} label="2" />
+          </div>
+        )}
       </div>
     </div>
   );
