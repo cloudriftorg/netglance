@@ -6,6 +6,60 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0] — 2026-05-03
+
+First production release. Folds in everything shipped through the
+v0.1.x series and stabilises the API + UI surface.
+
+### Added
+- **OPNsense plugin (`os-netglance`)** with custom pkg repo on
+  GitHub Pages and FreeBSD-native `netglance` binary.
+- **Notification pipeline** end-to-end: per-host `notifyOffline` /
+  `notifyOnline` opt-ins gated by global toggles in Settings.
+  Manual scans, auto scans, and post-save scans all dispatch the
+  same emails. VLAN included in mail body.
+- **Scan-on-save**: putting Settings (or running reset) kicks an
+  immediate scan via the same wiring as the manual button.
+- **Filter toggle** + status / acknowledgment / VLAN chip groups on
+  the Hosts page; sortable columns; per-row notification dots.
+- **PWA niceties**: iOS safe-area aware top bar, branded favicon
+  (orange hub-and-spoke topology), system theme indicator.
+- Dev escape hatch: `localStorage.setItem('netglance.dev.skipAuth','1')`
+  + backend down → preview page chrome with synthetic data.
+- Dummy-data preview when running the dev server with no backend.
+
+### Changed
+- Theme: removed every alpha-blend background / border / text colour
+  in favour of solid tints; deeper slate greys on dark, off-white
+  on light.
+- Hosts toolbar: search → scan/countdown (clock + `m:ss` collapses
+  into the scan button) → filter (sky blue) → clear (paintbrush).
+- HostDetail page split into a sticky toolbar + scrollable body
+  with a styled Back button matching the rest of the chrome.
+- Settings: `Save` (was `Save settings`); `Test email` (was `Send
+  test email`) lives in the SMTP card header with a popover
+  reminding users to save first; `Managed by OPNsense` collapses
+  to a compact `OPNsense` badge with hover/tap popover.
+- `/api/scan/status` returns a full-interval countdown when no scan
+  has ever been recorded, instead of remaining=0 (which read as
+  the misleading "Next in starting…").
+- Default `Notify.Offline` flipped to off on fresh installs.
+
+### Fixed
+- Manual scans now thread the SMTP / notify config through to the
+  scanner so notifications fire (was silently dropped before).
+- Hosts polling effect no longer hot-loops on `nextScanAnchor`
+  changes — fixes the Next/Last badges going blank or stale on
+  page remount.
+- Filtered-empty state on Hosts: "No hosts match the current
+  filters · Clear filters" instead of an empty table body.
+- Mobile badge ordering: Last scan first, then countdown.
+- Reset re-applies env-supplied bootstrap settings so OPNsense
+  managed `scanIfaces` are restored.
+- `/api/system/managed` moved out of the auth group so the Setup
+  wizard can read it pre-login.
+- Scan badge stuck on "Next in starting…" indefinitely after reset.
+
 ### Removed
 - Scans history page and `GET /api/scans` endpoint. The Hosts page already
   surfaces a "Last scan" badge sourced from a single record; an
@@ -97,4 +151,5 @@ First public release.
   Settings is schema-only
 - No password reset flow — recovering requires DB reset
 
+[1.0.0]: https://github.com/netglance/netglance/releases/tag/v1.0.0
 [0.1.0]: https://github.com/netglance/netglance/releases/tag/v0.1.0
