@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
-import { api, Host, NetworkConfig, Scan } from '../lib/api';
+import { api, Host, NetworkConfig } from '../lib/api';
 import { errMessage, useToast } from '../components/Toast';
 import { useConfirm } from '../components/Confirm';
 import { Clock, Filter, Paintbrush, RefreshCw, Trash2 } from 'lucide-react';
@@ -17,19 +17,21 @@ export default function Hosts() {
   const [ackFilter, setAckFilter] = useState<'all' | 'new' | 'known'>('all');
   const [vlan, setVlan] = useState<number | null>(null);
   const [scanning, setScanning] = useState(false);
-  const [lastScan, setLastScan] = useState<Scan | null>(null);
   // Anchor + remaining seconds reported by the server at the last poll. The
   // local timer ticks down from (anchor + remaining) using the client clock,
   // but server polls realign the badge so any clock skew never accumulates.
   const [nextScanAnchor, setNextScanAnchor] = useState<{ remaining: number; at: number } | null>(null);
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' } | null>(loadSortPref);
-  // Persist the show/hide-filters preference across reloads so the
-  // user doesn't have to flip it back on every visit.
+  // Filters start hidden (a fresh install / post-reset has nothing
+  // worth filtering by), and the toggle persists across reloads. The
+  // null check matters: `=== '1'` falls back to false when no
+  // preference has been stored yet, so the first visit always opens
+  // collapsed regardless of the previous user's choice.
   const [showFilters, setShowFilters] = useState<boolean>(() => {
     try {
-      return localStorage.getItem('netglance.hosts.showFilters') !== '0';
+      return localStorage.getItem('netglance.hosts.showFilters') === '1';
     } catch {
-      return true;
+      return false;
     }
   });
   useEffect(() => {
@@ -100,7 +102,6 @@ export default function Hosts() {
   async function pollStatus() {
     try {
       const s = await api.scanStatus();
-      if (s.lastScan) setLastScan(s.lastScan);
       if (typeof s.nextScanInSeconds === 'number') {
         setNextScanAnchor({ remaining: s.nextScanInSeconds, at: Date.now() });
       } else {
@@ -262,6 +263,14 @@ export default function Hosts() {
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       <div className="flex items-center gap-2">
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search MAC, IP, name…" className="input flex-1" />
+        {/* Scan button doubles as the next-scan countdown — when not
+            scanning it shows a clock + remaining time, when scanning
+            it spins. Click always triggers a manual scan. */}
+        <ScanButton
+          onClick={runScan}
+          scanning={scanning}
+          anchor={nextScanAnchor}
+        />
         <button
           onClick={() => setShowFilters((v) => !v)}
           aria-label={showFilters ? 'Hide filters' : 'Show filters'}
@@ -270,20 +279,11 @@ export default function Hosts() {
           className={clsx(
             'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border p-0 transition-colors sm:h-10 sm:w-10',
             showFilters
-              ? 'border-brand-500 bg-brand-500 text-white hover:bg-brand-600'
-              : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800',
+              ? 'border-sky-500 bg-sky-500 text-white hover:bg-sky-600'
+              : 'border-slate-300 bg-white text-sky-600 hover:bg-sky-50 dark:border-slate-700 dark:bg-slate-900 dark:text-sky-300 dark:hover:bg-slate-800',
           )}
         >
           <Filter className="h-4 w-4" />
-        </button>
-        <button
-          onClick={runScan}
-          disabled={scanning}
-          aria-label={scanning ? 'Scan in progress' : 'Scan now'}
-          title={scanning ? 'Scan in progress' : 'Scan now'}
-          className="btn-primary inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full p-0 sm:h-10 sm:w-10"
-        >
-          <RefreshCw className={clsx('h-4 w-4', scanning && 'animate-spin')} />
         </button>
         <button
           onClick={clearHosts}
@@ -294,15 +294,6 @@ export default function Hosts() {
         >
           <Paintbrush className="h-4 w-4" />
         </button>
-      </div>
-
-      {/* Scan badges live on their own row so they're always visible
-          regardless of the filter chips (which the user can hide).
-          Mobile keeps "Last scan" first; desktop right-aligns the pair
-          and leads with the countdown. */}
-      <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-        <LastScanBadge scan={lastScan} scanning={scanning} className="sm:order-2" />
-        <NextScanBadge anchor={nextScanAnchor} scanning={scanning} className="sm:order-1" />
       </div>
 
       <div className={clsx('flex-wrap items-center gap-2 text-sm', showFilters ? 'flex' : 'hidden')}>
@@ -499,66 +490,19 @@ export default function Hosts() {
   );
 }
 
-function LastScanBadge({ scan, scanning, className }: { scan: Scan | null; scanning: boolean; className?: string }) {
-  const base = 'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium';
-  if (scanning) {
-    return (
-      <span
-        className={clsx(
-          base,
-          'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200',
-          className,
-        )}
-      >
-        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
-        Scanning…
-      </span>
-    );
-  }
-  if (!scan || !scan.endedAt) {
-    return (
-      <span
-        className={clsx(
-          base,
-          'border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400',
-          className,
-        )}
-      >
-        No scan yet
-      </span>
-    );
-  }
-  const d = new Date(scan.endedAt * 1000);
-  const formatted = d.toLocaleString(undefined, {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-  return (
-    <span
-      className={clsx(
-        base,
-        'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300',
-        className,
-      )}
-      title={`${scan.hostsFound} hosts`}
-    >
-      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-      Last scan {formatted}
-    </span>
-  );
-}
-
-function NextScanBadge({
-  anchor,
+// ScanButton merges the manual "Scan now" trigger with the auto-scan
+// countdown so the toolbar stays a single row. States:
+//   • scanning — RefreshCw spinning, button disabled
+//   • idle + countdown — Clock + "m:ss", click triggers a manual scan
+//   • idle + no countdown (auto disabled / fresh DB) — RefreshCw only
+function ScanButton({
+  onClick,
   scanning,
-  className,
+  anchor,
 }: {
-  anchor: { remaining: number; at: number } | null;
+  onClick: () => void;
   scanning: boolean;
-  className?: string;
+  anchor: { remaining: number; at: number } | null;
 }) {
   const [tick, setTick] = useState(0);
   useEffect(() => {
@@ -566,31 +510,48 @@ function NextScanBadge({
     const id = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(id);
   }, [scanning, anchor]);
-
-  if (scanning || !anchor) return null;
-
-  // Compute remaining locally from the server's anchor; the local clock only
-  // measures elapsed time since the poll, so any client/server clock skew
-  // doesn't bleed into the displayed countdown.
   void tick;
-  const elapsed = Math.floor((Date.now() - anchor.at) / 1000);
-  const remaining = Math.max(0, anchor.remaining - elapsed);
-  const m = Math.floor(remaining / 60);
-  const s = remaining % 60;
-  const label = remaining === 0 ? 'starting…' : `${m}:${s.toString().padStart(2, '0')}`;
+
+  let label: string | null = null;
+  if (!scanning && anchor) {
+    const elapsed = Math.floor((Date.now() - anchor.at) / 1000);
+    const remaining = Math.max(0, anchor.remaining - elapsed);
+    const m = Math.floor(remaining / 60);
+    const s = remaining % 60;
+    label = remaining === 0 ? '…' : `${m}:${s.toString().padStart(2, '0')}`;
+  }
+
+  const title = scanning
+    ? 'Scan in progress'
+    : label
+      ? `Scan now (next auto in ${label})`
+      : 'Scan now';
 
   return (
-    <span
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={scanning}
+      aria-label={title}
+      title={title}
       className={clsx(
-        'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium',
-        'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300',
-        className,
+        'btn-primary inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full sm:h-10',
+        // Compact (icon-only) when there's no countdown to show; pill
+        // with text when the timer is visible.
+        label ? 'px-3' : 'w-9 px-0 sm:w-10',
       )}
-      title="Time until next automatic scan"
     >
-      <Clock className="h-3.5 w-3.5" />
-      Next in {label}
-    </span>
+      {scanning ? (
+        <RefreshCw className="h-4 w-4 animate-spin" />
+      ) : label ? (
+        <>
+          <Clock className="h-4 w-4" />
+          <span className="font-mono text-xs tabular-nums">{label}</span>
+        </>
+      ) : (
+        <RefreshCw className="h-4 w-4" />
+      )}
+    </button>
   );
 }
 
