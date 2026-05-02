@@ -35,6 +35,27 @@ jobs:
           mkdir -p backend/internal/webui/dist
           cp -R frontend/dist/. backend/internal/webui/dist/
 
+      # Cross-compile the FreeBSD binary on the Linux runner — Go does
+      # this natively (modernc.org/sqlite is pure Go). This avoids
+      # installing go/git inside the FreeBSD VM and shaves ~10 minutes
+      # off CI vs. building inside the VM after a `pkg upgrade -y`.
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache-dependency-path: backend/go.sum
+      - name: Cross-compile FreeBSD binary
+        working-directory: backend
+        env:
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          [ -z "$VERSION" ] || [ "$VERSION" = "$GITHUB_REF_NAME" ] && VERSION="0.0.0-dev"
+          CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64 \
+            go build -trimpath \
+              -ldflags="-s -w -X main.version=$VERSION" \
+              -o ../netglance-freebsd-amd64 \
+              ./cmd/server
+
       - name: Build .pkg files inside FreeBSD VM
         uses: vmactions/freebsd-vm@v1
         env:
@@ -45,11 +66,14 @@ jobs:
           envs: "PKG_SIGN_KEY GITHUB_REF_NAME"
           copyback: true
           prepare: |
-            # Upgrade first so newly-installed pkgs don't pull in shared
-            # libs incompatible with the VM image's preinstalled git
-            # (e.g. pcre2 version mismatch breaks ld-elf for git).
-            pkg upgrade -y
-            pkg install -y go git gmake bash arp-scan jq
+            # Minimal install: arp-scan we re-bundle for the repo, plus
+            # git/bash for the opnsense/plugins framework. No go (we
+            # cross-compiled on the runner), no jq (we generate the
+            # files-list with sh), no gmake (plugins.mk needs bmake).
+            # Skipping `pkg upgrade -y` saves ~10 minutes — the only
+            # reason we needed it before was a pcre2 mismatch triggered
+            # by installing jq, which we no longer install.
+            pkg install -y git bash arp-scan
           run: |
             set -eu
             VERSION="${GITHUB_REF_NAME#v}"
@@ -60,16 +84,12 @@ jobs:
             mkdir -p /tmp/pkgroot/usr/local/etc/netglance
             mkdir -p /tmp/pkgroot/var/db/netglance
 
-            # -buildvcs=false because vmactions rsyncs the workspace into
-            # the VM without the .git dir, so Go's default VCS stamping
-            # would fail with "error obtaining VCS status: exit status 1".
-            cd backend
-            CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64 \
-              go build -trimpath -buildvcs=false \
-                -ldflags="-s -w -X main.version=$VERSION" \
-                -o /tmp/pkgroot/usr/local/sbin/netglance \
-                ./cmd/server
-            cd ..
+            # Binary was cross-compiled on the Linux runner (see step
+            # above). vmactions rsyncs the workspace into the VM, so it's
+            # already at $GITHUB_WORKSPACE/netglance-freebsd-amd64.
+            cp $GITHUB_WORKSPACE/netglance-freebsd-amd64 \
+              /tmp/pkgroot/usr/local/sbin/netglance
+            chmod +x /tmp/pkgroot/usr/local/sbin/netglance
 
             sed "s|%%PREFIX%%|/usr/local|g" \
               deploy/freebsd-port/files/netglance.in \
@@ -94,12 +114,12 @@ jobs:
             # Generate the files object for the netglance manifest by
             # walking /tmp/pkgroot. pkg create -M *requires* an explicit
             # files: list — the -r rootdir flag only sets the lookup root,
-            # it doesn't auto-discover. jq turns the find output into a
-            # JSON object mapping absolute install path -> "" (placeholder
-            # checksum, pkg fills it in).
+            # it doesn't auto-discover. Build the JSON object with awk
+            # (no jq needed — installing jq used to drag in a pcre2
+            # upgrade that broke the VM's preinstalled git).
             FILES_JSON=$(cd /tmp/pkgroot && find . -type f \
               | sed 's|^\./|/|' \
-              | jq -R -s 'split("\n") | map(select(length>0)) | map({(.): ""}) | add')
+              | awk 'BEGIN{printf "{"} {if(NR>1)printf ","; printf "\"%s\":\"\"",$0} END{printf "}"}')
 
             cat > /tmp/netglance-manifest <<JSON
             {
