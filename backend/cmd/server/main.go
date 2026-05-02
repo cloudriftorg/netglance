@@ -176,5 +176,45 @@ func loadScannerSettings(st *store.Store) scanner.Settings {
 		}
 		out.Networks = append(out.Networks, scanner.Network{Name: n.Name, CIDR: n.CIDR, VLANID: v})
 	}
+
+	// Compose the notify config from the same settings keys the API
+	// putSettingsHandler writes. Read with the same shape used by the
+	// API layer (api.SMTPConfig / api.NotifyToggles) so round-tripping
+	// stays stable; we project into scanner.NotifyConfig to avoid
+	// importing the api package here.
+	var smtp struct {
+		Host       string   `json:"host"`
+		Port       int      `json:"port"`
+		UseTLS     bool     `json:"useTLS"`
+		UseAuth    bool     `json:"useAuth"`
+		Username   string   `json:"username"`
+		Password   string   `json:"password"`
+		From       string   `json:"from"`
+		Recipients []string `json:"recipients"`
+	}
+	var toggles struct {
+		NewHost    bool `json:"newHost"`
+		Offline    bool `json:"offline"`
+		BackOnline bool `json:"backOnline"`
+	}
+	hasSMTP, _ := st.GetSetting("smtp", &smtp)
+	_, _ = st.GetSetting("notify", &toggles)
+	if hasSMTP && smtp.Host != "" && len(smtp.Recipients) > 0 {
+		out.Notify = &scanner.NotifyConfig{
+			SMTP: scanner.SMTPConfig{
+				Host:       smtp.Host,
+				Port:       smtp.Port,
+				UseTLS:     smtp.UseTLS,
+				UseAuth:    smtp.UseAuth,
+				Username:   smtp.Username,
+				Password:   smtp.Password,
+				From:       smtp.From,
+				Recipients: smtp.Recipients,
+			},
+			OnNewHost:    toggles.NewHost,
+			OnOffline:    toggles.Offline,
+			OnBackOnline: toggles.BackOnline,
+		}
+	}
 	return out
 }

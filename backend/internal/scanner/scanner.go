@@ -2,12 +2,14 @@ package scanner
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/netglance/netglance/internal/notify"
 	"github.com/netglance/netglance/internal/ouidb"
 	"github.com/netglance/netglance/internal/store"
 )
@@ -24,6 +26,27 @@ type Settings struct {
 	ScanEnabled      bool
 	ScanEverySeconds int
 	OfflineAfter     int
+	// Notify holds the SMTP config + which transitions should fire emails.
+	// nil = notifications fully disabled (e.g. SMTP not configured).
+	Notify *NotifyConfig
+}
+
+type NotifyConfig struct {
+	SMTP        SMTPConfig
+	OnNewHost   bool
+	OnOffline   bool
+	OnBackOnline bool
+}
+
+type SMTPConfig struct {
+	Host       string
+	Port       int
+	UseTLS     bool
+	UseAuth    bool
+	Username   string
+	Password   string
+	From       string
+	Recipients []string
 }
 
 type Discovery struct {
@@ -73,14 +96,23 @@ func runOnce(ctx context.Context, st *store.Store, s Settings, logger *slog.Logg
 	startedAt := time.Now().Unix()
 	all := discover(ctx, s, logger)
 
+	var newHosts []*store.Host
+	var backOnlineHosts []*store.Host
 	for _, d := range all {
 		mac := strings.ToLower(d.MAC)
 		vendor := d.Vendor
 		if vendor == "" || vendor == "(Unknown)" {
 			vendor = ouidb.Lookup(mac)
 		}
-		if _, _, err := st.UpsertSeen(mac, d.IP.String(), d.NetworkName, d.VLANID, vendor, d.Hostname, startedAt); err != nil {
+		h, isNew, wasOffline, err := st.UpsertSeen(mac, d.IP.String(), d.NetworkName, d.VLANID, vendor, d.Hostname, startedAt)
+		if err != nil {
 			logger.Warn("upsert", "mac", mac, "err", err)
+			continue
+		}
+		if isNew {
+			newHosts = append(newHosts, h)
+		} else if wasOffline {
+			backOnlineHosts = append(backOnlineHosts, h)
 		}
 	}
 
@@ -88,9 +120,16 @@ func runOnce(ctx context.Context, st *store.Store, s Settings, logger *slog.Logg
 	if threshold <= 0 {
 		threshold = 1
 	}
-	if _, err := st.MarkSweep(startedAt, threshold); err != nil {
+	wentOffline, err := st.MarkSweep(startedAt, threshold)
+	if err != nil {
 		logger.Warn("mark sweep", "err", err)
 	}
+
+	// Fire notification emails after the DB writes are durable. Each
+	// transition is a separate concern: new-host applies regardless of
+	// per-host watch flag, offline/back-online only fire when the host
+	// has notify_offline = 1.
+	notifyTransitions(s.Notify, newHosts, wentOffline, backOnlineHosts, logger)
 
 	if err := st.RecordScan(store.LastScan{
 		StartedAt:  startedAt,
@@ -216,4 +255,83 @@ func buildScanTargets(s Settings, allow map[string]bool, logger *slog.Logger) []
 		}
 	}
 	return out
+}
+
+// notifyTransitions emails the configured recipients about new / offline /
+// back-online host transitions detected during this scan tick. Skips
+// silently when SMTP isn't configured or no recipients are set, so the
+// scanner stays quiet on a fresh install.
+func notifyTransitions(cfg *NotifyConfig, newHosts, wentOffline, backOnline []*store.Host, logger *slog.Logger) {
+	if cfg == nil || cfg.SMTP.Host == "" || len(cfg.SMTP.Recipients) == 0 {
+		return
+	}
+	smtp := notify.Config{
+		Host:       cfg.SMTP.Host,
+		Port:       cfg.SMTP.Port,
+		UseTLS:     cfg.SMTP.UseTLS,
+		UseAuth:    cfg.SMTP.UseAuth,
+		Username:   cfg.SMTP.Username,
+		Password:   cfg.SMTP.Password,
+		From:       cfg.SMTP.From,
+		Recipients: cfg.SMTP.Recipients,
+	}
+	if cfg.OnNewHost {
+		for _, h := range newHosts {
+			subject := fmt.Sprintf("Netglance — new device on LAN: %s", hostLabel(h))
+			body := fmt.Sprintf(
+				"Netglance just discovered a device it has never seen before.\n\nIP:     %s\nMAC:    %s\nVendor: %s\n",
+				h.IP, h.MAC, vendorLabel(h),
+			)
+			if err := notify.Send(smtp, subject, body); err != nil {
+				logger.Warn("notify new", "mac", h.MAC, "err", err)
+			}
+		}
+	}
+	if cfg.OnOffline {
+		for _, h := range wentOffline {
+			if !h.NotifyOffline {
+				continue // only watched hosts trigger offline mails
+			}
+			subject := fmt.Sprintf("Netglance — host went offline: %s", hostLabel(h))
+			body := fmt.Sprintf(
+				"A watched host stopped answering ARP scans.\n\nIP:     %s\nMAC:    %s\nVendor: %s\n",
+				h.IP, h.MAC, vendorLabel(h),
+			)
+			if err := notify.Send(smtp, subject, body); err != nil {
+				logger.Warn("notify offline", "mac", h.MAC, "err", err)
+			}
+		}
+	}
+	if cfg.OnBackOnline {
+		for _, h := range backOnline {
+			if !h.NotifyOffline {
+				continue // mirror the offline gate so users opt into the pair
+			}
+			subject := fmt.Sprintf("Netglance — host back online: %s", hostLabel(h))
+			body := fmt.Sprintf(
+				"A watched host has reappeared on the network.\n\nIP:     %s\nMAC:    %s\nVendor: %s\n",
+				h.IP, h.MAC, vendorLabel(h),
+			)
+			if err := notify.Send(smtp, subject, body); err != nil {
+				logger.Warn("notify back-online", "mac", h.MAC, "err", err)
+			}
+		}
+	}
+}
+
+func hostLabel(h *store.Host) string {
+	if h.CustomName != "" {
+		return h.CustomName
+	}
+	return h.IP
+}
+
+func vendorLabel(h *store.Host) string {
+	if h.CustomVendor != "" {
+		return h.CustomVendor
+	}
+	if h.Vendor != "" {
+		return h.Vendor
+	}
+	return "(unknown)"
 }

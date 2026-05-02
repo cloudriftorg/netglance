@@ -31,11 +31,17 @@ type HostFilter struct {
 	Query  string
 }
 
-func (s *Store) UpsertSeen(mac, ip, networkName string, vlanID *int, vendor, hostname string, ts int64) (*Host, bool, error) {
+// UpsertSeen returns:
+//   host       — current row after the upsert
+//   isNew      — true on first-ever sight of this MAC
+//   wasOffline — true when this scan flipped an existing host from
+//                offline back to online (so the caller can fire a
+//                'back online' notification)
+func (s *Store) UpsertSeen(mac, ip, networkName string, vlanID *int, vendor, hostname string, ts int64) (*Host, bool, bool, error) {
 	mac = strings.ToLower(mac)
 	tx, err := s.db.Begin()
 	if err != nil {
-		return nil, false, err
+		return nil, false, false, err
 	}
 	defer tx.Rollback()
 
@@ -58,7 +64,7 @@ func (s *Store) UpsertSeen(mac, ip, networkName string, vlanID *int, vendor, hos
 
 	isNew := errors.Is(err, sql.ErrNoRows)
 	if err != nil && !isNew {
-		return nil, false, err
+		return nil, false, false, err
 	}
 
 	if isNew {
@@ -72,7 +78,7 @@ func (s *Store) UpsertSeen(mac, ip, networkName string, vlanID *int, vendor, hos
 			mac, ip, vid, networkName, hostname, vendor, ts, ts,
 		)
 		if err != nil {
-			return nil, false, err
+			return nil, false, false, err
 		}
 		id, _ := res.LastInsertId()
 		// Only the 'new' event is recorded on first sight — a "Came online"
@@ -80,13 +86,13 @@ func (s *Store) UpsertSeen(mac, ip, networkName string, vlanID *int, vendor, hos
 		// implies the host is online). 'online' events are reserved for
 		// later offline→online transitions.
 		if _, err := tx.Exec(`INSERT INTO host_events(host_id, ts, kind, ip) VALUES(?, ?, 'new', ?)`, id, ts, ip); err != nil {
-			return nil, false, err
+			return nil, false, false, err
 		}
 		if err := tx.Commit(); err != nil {
-			return nil, false, err
+			return nil, false, false, err
 		}
 		h, _ := s.HostByMAC(mac)
-		return h, true, nil
+		return h, true, false, nil
 	}
 
 	wasOffline := !existing.Online
@@ -104,23 +110,23 @@ func (s *Store) UpsertSeen(mac, ip, networkName string, vlanID *int, vendor, hos
 		 WHERE id = ?`,
 		ip, vid, networkName, hostname, vendor, ts, existing.ID,
 	); err != nil {
-		return nil, false, err
+		return nil, false, false, err
 	}
 	if wasOffline {
 		if _, err := tx.Exec(`INSERT INTO host_events(host_id, ts, kind, ip) VALUES(?, ?, 'online', ?)`, existing.ID, ts, ip); err != nil {
-			return nil, false, err
+			return nil, false, false, err
 		}
 	}
 	if ipChanged {
 		if _, err := tx.Exec(`INSERT INTO host_events(host_id, ts, kind, ip) VALUES(?, ?, 'ip_change', ?)`, existing.ID, ts, ip); err != nil {
-			return nil, false, err
+			return nil, false, false, err
 		}
 	}
 	if err := tx.Commit(); err != nil {
-		return nil, false, err
+		return nil, false, false, err
 	}
 	h, _ := s.HostByMAC(mac)
-	return h, false, nil
+	return h, false, wasOffline, nil
 }
 
 func (s *Store) MarkSweep(seenSince int64, offlineThreshold int) ([]*Host, error) {
