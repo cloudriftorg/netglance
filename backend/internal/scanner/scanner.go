@@ -304,8 +304,8 @@ func notifyTransitions(cfg *NotifyConfig, newHosts, wentOffline, backOnline []*s
 	}
 	if cfg.OnBackOnline {
 		for _, h := range backOnline {
-			if !h.NotifyOffline {
-				continue // mirror the offline gate so users opt into the pair
+			if !h.NotifyOnline {
+				continue // separate per-host opt-in for back-online emails
 			}
 			subject := fmt.Sprintf("Netglance — host back online: %s", hostLabel(h))
 			body := fmt.Sprintf(

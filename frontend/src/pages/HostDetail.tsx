@@ -14,7 +14,8 @@ export default function HostDetail() {
   const [data, setData] = useState<{ host: Host; events: HostEvent[] } | null>(null);
   const [customName, setCustomName] = useState('');
   const [customVendor, setCustomVendor] = useState('');
-  const [notifyOffline, setNotifyOffline] = useState(true);
+  const [notifyOffline, setNotifyOffline] = useState(false);
+  const [notifyOnline, setNotifyOnline] = useState(false);
   const [isNew, setIsNew] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -27,6 +28,7 @@ export default function HostDetail() {
         setCustomName(d.host.customName || '');
         setCustomVendor(d.host.customVendor || '');
         setNotifyOffline(d.host.notifyOffline);
+        setNotifyOnline(d.host.notifyOnline);
         setIsNew(d.host.isNew);
       })
       .catch((e) => toast.error(errMessage(e, 'Load failed')));
@@ -37,7 +39,7 @@ export default function HostDetail() {
     if (!mac || !data) return;
     setSaving(true);
     try {
-      await api.updateHost(mac, { customName, customVendor, notifyOffline, isNew });
+      await api.updateHost(mac, { customName, customVendor, notifyOffline, notifyOnline, isNew });
       toast.success('Host updated');
       navigate(-1);
     } catch (e) {
@@ -130,10 +132,20 @@ export default function HostDetail() {
               placeholder={host.vendor || 'e.g. Living room TV'}
             />
           </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={notifyOffline} onChange={(e) => setNotifyOffline(e.target.checked)} />
-            Notify when this host goes offline
-          </label>
+          <div className="space-y-1">
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={notifyOffline} onChange={(e) => setNotifyOffline(e.target.checked)} />
+              Notify when this host goes offline
+            </label>
+            <p className="ml-6 text-xs text-slate-500">Only sent when <em>Host went offline</em> is enabled in Settings.</p>
+          </div>
+          <div className="space-y-1">
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={notifyOnline} onChange={(e) => setNotifyOnline(e.target.checked)} />
+              Notify when this host goes online
+            </label>
+            <p className="ml-6 text-xs text-slate-500">Only sent when <em>Host came back online</em> is enabled in Settings.</p>
+          </div>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={isNew} onChange={(e) => setIsNew(e.target.checked)} />
             Flag as new

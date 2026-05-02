@@ -34,7 +34,7 @@ export const api = {
   getHost: (mac: string) => request<{ host: Host; events: HostEvent[] }>(`/api/hosts/${mac}`),
   updateHost: (
     mac: string,
-    body: { customName: string; customVendor: string; notifyOffline: boolean; isNew: boolean }
+    body: { customName: string; customVendor: string; notifyOffline: boolean; notifyOnline: boolean; isNew: boolean }
   ) => request<Host>(`/api/hosts/${mac}`, { method: 'PATCH', body: JSON.stringify(body) }),
   deleteHost: (mac: string) => request<{ ok: boolean }>(`/api/hosts/${mac}`, { method: 'DELETE' }),
   deleteAllHosts: () => request<{ ok: boolean }>('/api/hosts', { method: 'DELETE' }),
@@ -90,6 +90,7 @@ export interface Host {
   online: boolean;
   isNew: boolean;
   notifyOffline: boolean;
+  notifyOnline: boolean;
 }
 
 export interface HostEvent {

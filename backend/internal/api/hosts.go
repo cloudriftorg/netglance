@@ -61,6 +61,7 @@ type updateHostRequest struct {
 	CustomName    string `json:"customName"`
 	CustomVendor  string `json:"customVendor"`
 	NotifyOffline bool   `json:"notifyOffline"`
+	NotifyOnline  bool   `json:"notifyOnline"`
 	IsNew         bool   `json:"isNew"`
 }
 
@@ -72,7 +73,7 @@ func updateHostHandler(st *store.Store) http.HandlerFunc {
 			http.Error(w, "invalid body", http.StatusBadRequest)
 			return
 		}
-		if err := st.UpdateHostMeta(mac, req.CustomName, req.CustomVendor, req.NotifyOffline, req.IsNew); err != nil {
+		if err := st.UpdateHostMeta(mac, req.CustomName, req.CustomVendor, req.NotifyOffline, req.NotifyOnline, req.IsNew); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}

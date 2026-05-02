@@ -315,7 +315,7 @@ export default function SettingsPage() {
                 checked={s.notify.offline}
                 onChange={(e) => update('notify', { ...s.notify, offline: e.target.checked })}
               />
-              Watched host went offline
+              Host went offline
             </label>
             <label className="flex items-center gap-2 text-sm">
               <input
@@ -323,7 +323,7 @@ export default function SettingsPage() {
                 checked={s.notify.backOnline}
                 onChange={(e) => update('notify', { ...s.notify, backOnline: e.target.checked })}
               />
-              Watched host came back online
+              Host came back online
             </label>
           </Section>
 

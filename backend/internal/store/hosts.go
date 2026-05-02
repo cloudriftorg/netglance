@@ -23,6 +23,7 @@ type Host struct {
 	Online        bool   `json:"online"`
 	IsNew         bool   `json:"isNew"`
 	NotifyOffline bool   `json:"notifyOffline"`
+	NotifyOnline  bool   `json:"notifyOnline"`
 }
 
 type HostFilter struct {
@@ -50,12 +51,12 @@ func (s *Store) UpsertSeen(mac, ip, networkName string, vlanID *int, vendor, hos
 	err = tx.QueryRow(
 		`SELECT id, mac, ip, vlan_id, COALESCE(network_name,''), COALESCE(hostname,''),
 		        COALESCE(vendor,''), COALESCE(custom_vendor,''), COALESCE(custom_name,''),
-		        first_seen, last_seen, online, is_new, notify_offline
+		        first_seen, last_seen, online, is_new, notify_offline, notify_online
 		 FROM hosts WHERE mac = ?`, mac,
 	).Scan(
 		&existing.ID, &existing.MAC, &existing.IP, &v, &existing.NetworkName, &existing.Hostname,
 		&existing.Vendor, &existing.CustomVendor, &existing.CustomName,
-		&existing.FirstSeen, &existing.LastSeen, &existing.Online, &existing.IsNew, &existing.NotifyOffline,
+		&existing.FirstSeen, &existing.LastSeen, &existing.Online, &existing.IsNew, &existing.NotifyOffline, &existing.NotifyOnline,
 	)
 	if v.Valid {
 		i := int(v.Int64)
@@ -72,9 +73,12 @@ func (s *Store) UpsertSeen(mac, ip, networkName string, vlanID *int, vendor, hos
 		if vlanID != nil {
 			vid = *vlanID
 		}
+		// notify_offline / notify_online forced to 0 on insert: notifications
+		// are opt-in per host. The user enables them from the host detail
+		// page, gated by the global toggles in Settings.
 		res, err := tx.Exec(
-			`INSERT INTO hosts(mac, ip, vlan_id, network_name, hostname, vendor, first_seen, last_seen, online, missed_scans, is_new)
-			 VALUES(?, ?, ?, ?, ?, ?, ?, ?, 1, 0, 1)`,
+			`INSERT INTO hosts(mac, ip, vlan_id, network_name, hostname, vendor, first_seen, last_seen, online, missed_scans, is_new, notify_offline, notify_online)
+			 VALUES(?, ?, ?, ?, ?, ?, ?, ?, 1, 0, 1, 0, 0)`,
 			mac, ip, vid, networkName, hostname, vendor, ts, ts,
 		)
 		if err != nil {
@@ -187,11 +191,11 @@ func (s *Store) HostByMAC(mac string) (*Host, error) {
 	err := s.db.QueryRow(
 		`SELECT id, mac, ip, vlan_id, COALESCE(network_name,''), COALESCE(hostname,''),
 		        COALESCE(vendor,''), COALESCE(custom_vendor,''), COALESCE(custom_name,''),
-		        first_seen, last_seen, online, is_new, notify_offline
+		        first_seen, last_seen, online, is_new, notify_offline, notify_online
 		 FROM hosts WHERE mac = ?`, mac,
 	).Scan(
 		&h.ID, &h.MAC, &h.IP, &v, &h.NetworkName, &h.Hostname,
-		&h.Vendor, &h.CustomVendor, &h.CustomName, &h.FirstSeen, &h.LastSeen, &h.Online, &h.IsNew, &h.NotifyOffline,
+		&h.Vendor, &h.CustomVendor, &h.CustomName, &h.FirstSeen, &h.LastSeen, &h.Online, &h.IsNew, &h.NotifyOffline, &h.NotifyOnline,
 	)
 	if err != nil {
 		return nil, err
@@ -207,7 +211,7 @@ func (s *Store) ListHosts(f HostFilter) ([]*Host, error) {
 	q := strings.Builder{}
 	q.WriteString(`SELECT id, mac, ip, vlan_id, COALESCE(network_name,''), COALESCE(hostname,''),
 	                       COALESCE(vendor,''), COALESCE(custom_vendor,''), COALESCE(custom_name,''),
-	                       first_seen, last_seen, online, is_new, notify_offline
+	                       first_seen, last_seen, online, is_new, notify_offline, notify_online
 	               FROM hosts WHERE 1=1`)
 	args := []any{}
 	if f.VLAN != nil {
@@ -239,7 +243,7 @@ func (s *Store) ListHosts(f HostFilter) ([]*Host, error) {
 		var v sql.NullInt64
 		if err := rows.Scan(
 			&h.ID, &h.MAC, &h.IP, &v, &h.NetworkName, &h.Hostname,
-			&h.Vendor, &h.CustomVendor, &h.CustomName, &h.FirstSeen, &h.LastSeen, &h.Online, &h.IsNew, &h.NotifyOffline,
+			&h.Vendor, &h.CustomVendor, &h.CustomName, &h.FirstSeen, &h.LastSeen, &h.Online, &h.IsNew, &h.NotifyOffline, &h.NotifyOnline,
 		); err != nil {
 			return nil, err
 		}
@@ -349,11 +353,11 @@ func (r NetworkRule) Contains(ip string) bool {
 	return ipnet.Contains(parsed)
 }
 
-func (s *Store) UpdateHostMeta(mac, customName, customVendor string, notifyOffline, isNew bool) error {
+func (s *Store) UpdateHostMeta(mac, customName, customVendor string, notifyOffline, notifyOnline, isNew bool) error {
 	mac = strings.ToLower(mac)
 	_, err := s.db.Exec(
-		`UPDATE hosts SET custom_name = ?, custom_vendor = ?, notify_offline = ?, is_new = ? WHERE mac = ?`,
-		customName, customVendor, boolToInt(notifyOffline), boolToInt(isNew), mac,
+		`UPDATE hosts SET custom_name = ?, custom_vendor = ?, notify_offline = ?, notify_online = ?, is_new = ? WHERE mac = ?`,
+		customName, customVendor, boolToInt(notifyOffline), boolToInt(notifyOnline), boolToInt(isNew), mac,
 	)
 	return err
 }
