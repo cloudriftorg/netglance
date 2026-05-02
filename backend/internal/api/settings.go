@@ -70,6 +70,14 @@ func putSettingsHandler(st *store.Store, managed bool) http.HandlerFunc {
 		_ = st.SetSetting("offlineAfter", req.OfflineAfter)
 		_ = st.SetSetting("smtp", req.SMTP)
 		_ = st.SetSetting("notify", req.Notify)
+		// Re-tag existing hosts against the just-saved network rules so a
+		// VLAN rename / retag / remove reflects in the Hosts UI immediately,
+		// without waiting for the next scheduled scan to overwrite them.
+		rules := make([]store.NetworkRule, 0, len(req.Networks))
+		for _, n := range req.Networks {
+			rules = append(rules, store.NetworkRule{CIDR: n.CIDR, VLANID: n.VLANID, Name: n.Name})
+		}
+		_ = st.RetagHosts(rules)
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 	}
 }

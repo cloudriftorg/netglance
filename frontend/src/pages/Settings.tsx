@@ -38,9 +38,30 @@ export default function SettingsPage() {
 
   async function save() {
     if (!s) return;
+    // Drop empty rows the user may have added but never filled in (clicked
+    // + Add by mistake or cleared all fields). A row counts as empty when
+    // CIDR, VLAN and Name are all blank.
+    const trimmedNetworks = s.networks.filter(
+      (n) => n.cidr.trim() !== '' || n.vlanId != null || (n.name ?? '').trim() !== ''
+    );
+    // For non-empty rows, CIDR and VLAN are required.
+    for (const n of trimmedNetworks) {
+      if (n.cidr.trim() === '') {
+        toast.error('Each network row needs an IP/CIDR');
+        return;
+      }
+      if (n.vlanId == null) {
+        toast.error('Each network row needs a VLAN id');
+        return;
+      }
+    }
+    const cleaned = { ...s, networks: trimmedNetworks };
     setSaving(true);
     try {
-      await api.putSettings(s);
+      await api.putSettings(cleaned);
+      // Reflect the cleanup back into local state so any dropped empty rows
+      // disappear from the form even before the next reload.
+      setS(cleaned);
       toast.success('Settings saved');
     } catch (e) {
       toast.error(errMessage(e, 'Save failed'));
@@ -59,8 +80,8 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="flex min-h-0 flex-1 flex-col gap-6">
+      <div className="flex shrink-0 items-center justify-between">
         <h2 className="text-lg font-semibold">Settings</h2>
         <button onClick={save} disabled={saving} className="btn-primary">
           {saving ? 'Saving…' : 'Save settings'}
@@ -68,14 +89,14 @@ export default function SettingsPage() {
       </div>
 
       {managed.managed && (
-        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+        <div className="shrink-0 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
           <strong>Managed by OPNsense.</strong> Scan interfaces, networks, interval and listen port
           are read-only here — edit them from <em>Services → Netglance</em> in your OPNsense panel.
           Notifications, SMTP and per-host preferences remain editable.
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 overflow-y-auto pb-4 lg:grid-cols-2">
         <Section
           title="Scan"
           desc="Periodic scan runs in the background; the manual button on the Hosts page works regardless."
@@ -130,23 +151,16 @@ export default function SettingsPage() {
           )}
           {s.networks.map((n, i) => (
             <div key={i} className="grid grid-cols-12 gap-2">
-              {/* JSX order matches visual + tab order: Name → CIDR → VLAN → ×. */}
+              {/* JSX order matches visual + tab order: IP → VLAN → Name → ×. */}
               <input
-                className="input col-span-11 sm:col-span-4"
-                placeholder="Name (e.g. trusted)"
-                value={n.name}
-                disabled={isManaged('networks')}
-                onChange={(e) => updateNet(i, { name: e.target.value })}
-              />
-              <input
-                className="input col-span-8 col-start-1 row-start-2 sm:col-span-5 sm:col-start-auto sm:row-start-auto"
+                className="input col-span-11 sm:col-span-3"
                 placeholder="192.168.1.0/24"
                 value={n.cidr}
                 disabled={isManaged('networks')}
                 onChange={(e) => updateNet(i, { cidr: e.target.value })}
               />
               <input
-                className="input col-span-4 row-start-2 sm:col-span-2 sm:row-start-auto"
+                className="input col-span-4 col-start-1 row-start-2 sm:col-span-2 sm:col-start-auto sm:row-start-auto"
                 inputMode="numeric"
                 placeholder="VLAN"
                 value={n.vlanId ?? ''}
@@ -156,6 +170,13 @@ export default function SettingsPage() {
                     vlanId: e.target.value ? Number(e.target.value.replace(/\D/g, '')) : undefined,
                   })
                 }
+              />
+              <input
+                className="input col-span-8 row-start-2 sm:col-span-6 sm:row-start-auto"
+                placeholder="Name (e.g. trusted)"
+                value={n.name}
+                disabled={isManaged('networks')}
+                onChange={(e) => updateNet(i, { name: e.target.value })}
               />
               <button
                 className="col-span-1 col-start-12 row-start-1 text-sm text-red-600 disabled:opacity-40 sm:row-start-auto"

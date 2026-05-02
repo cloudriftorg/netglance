@@ -72,7 +72,7 @@ export default function HostDetail() {
   const displayName = host.customName || host.ip;
 
   return (
-    <div className="space-y-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pb-4">
       <div className="flex items-center justify-between">
         <Link to="/" className="text-sm text-slate-500 hover:underline">← Back</Link>
         <button onClick={save} disabled={saving} className="btn-primary">
@@ -103,7 +103,7 @@ export default function HostDetail() {
         </div>
         <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3 lg:grid-cols-4">
           <Field k="IP" v={host.ip} mono />
-          <Field k="VLAN" v={host.vlanId != null ? `VLAN ${host.vlanId}` : '—'} />
+          <Field k="VLAN" v={host.vlanId != null ? String(host.vlanId) : '—'} />
           <Field k="MAC" v={host.mac} mono />
           <Field k="Vendor" v={host.customVendor || host.vendor || '—'} />
           <Field k="First seen" v={new Date(host.firstSeen * 1000).toLocaleString()} />

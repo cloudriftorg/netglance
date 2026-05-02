@@ -4,6 +4,12 @@
 [![Latest release](https://img.shields.io/github/v/release/netglance/netglance?include_prereleases&sort=semver)](https://github.com/netglance/netglance/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
+> ⚠️ **Early development.** Netglance is under active development —
+> the OPNsense plugin in particular has not been hardened on a wide
+> range of hosts yet. Expect rough edges, breaking config changes
+> between minor versions, and don't deploy on a production firewall
+> you can't recover from a snapshot. Bug reports very welcome.
+
 **Discover, inventory and watch every device on your LAN.** Netglance scans
 configured CIDRs over ARP, keeps a SQLite history of when each MAC was
 first/last seen and on which IP, and ships a mobile-friendly web UI on

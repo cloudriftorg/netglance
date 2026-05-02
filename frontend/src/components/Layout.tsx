@@ -10,8 +10,8 @@ interface Props {
 
 export default function Layout({ children, onLogout }: Props) {
   return (
-    <div className="flex min-h-full flex-col">
-      <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur dark:border-slate-800 dark:bg-slate-900/80">
+    <div className="flex h-full flex-col overflow-hidden">
+      <header className="z-10 shrink-0 border-b border-slate-200 bg-white/80 backdrop-blur dark:border-slate-800 dark:bg-slate-900/80">
         <div className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <h1 className="text-lg font-semibold tracking-tight sm:flex-1">Netglance</h1>
           <nav className="order-3 flex w-full items-center justify-center gap-1 text-sm sm:order-none sm:w-auto">
@@ -30,7 +30,7 @@ export default function Layout({ children, onLogout }: Props) {
           </div>
         </div>
       </header>
-      <main className="w-full flex-1 px-4 pb-8 pt-4 sm:px-6">{children}</main>
+      <main className="flex w-full min-h-0 flex-1 flex-col px-4 pb-4 pt-4 sm:px-6">{children}</main>
     </div>
   );
 }

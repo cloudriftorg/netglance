@@ -26,10 +26,17 @@ export default {
           300: '#cbd5e1',
           400: '#94a3b8',
           500: '#64748b',
+          // Dark shades: pure neutral grays, no blue/red bias. Panels at
+          // slate-900 (#1a1a1a) sit just above the body's pure black so
+          // they read as cards on a dark backdrop.
           600: '#525252',
-          700: '#3a3a3a',
-          800: '#262626',
-          900: '#1d1d1d',
+          700: '#333333',
+          800: '#222222',
+          900: '#1a1a1a',
+          // The page <body> uses `dark:bg-slate-950`. Sits one notch below
+          // the slate-900 panels (#1a1a1a) so cards lift cleanly without
+          // the harshness of pure black.
+          950: '#0f0f0f',
         },
       },
     },

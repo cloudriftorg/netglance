@@ -13,7 +13,8 @@ export default function Hosts() {
   const [hosts, setHosts] = useState<Host[]>([]);
   const [networks, setNetworks] = useState<NetworkConfig[]>([]);
   const [q, setQ] = useState('');
-  const [filter, setFilter] = useState<'all' | 'online' | 'offline' | 'new'>('all');
+  const [filter, setFilter] = useState<'all' | 'online' | 'offline'>('all');
+  const [ackFilter, setAckFilter] = useState<'all' | 'new' | 'known'>('all');
   const [vlan, setVlan] = useState<number | null>(null);
   const [scanning, setScanning] = useState(false);
   const [lastScan, setLastScan] = useState<Scan | null>(null);
@@ -42,44 +43,29 @@ export default function Hosts() {
   // scans run silently in the background.
   const manualScan = useState({ value: false })[0];
 
+  // Pull hosts and networks together every time the list refreshes — keeping
+  // the two in lockstep eliminates any window where vlanLabel(h.vlanId) could
+  // resolve a stale name after the user renames a VLAN in Settings. Cheap:
+  // /api/settings is a single SQLite read.
   async function load() {
     try {
-      // online/vlan filters are applied client-side so the chip counters can
-      // reflect the full q-scoped list without re-querying when toggling.
-      const data = await api.listHosts({ q: q || undefined });
+      const [data, settings] = await Promise.all([
+        api.listHosts({ q: q || undefined }),
+        api.getSettings().catch(() => null),
+      ]);
       setHosts(data ?? []);
+      if (settings) setNetworks(settings.networks ?? []);
     } catch (err) {
       toast.error(errMessage(err, 'Load failed'));
     }
   }
-
-  // Networks come from settings — used to render VLAN cells/chips by name
-  // instead of the bare numeric id. Refresh on tab focus so renaming a
-  // network in Settings reflects on Hosts without manual reload, and pull
-  // again every 30s as a backstop for long-lived sessions.
-  useEffect(() => {
-    const refresh = () =>
-      api.getSettings()
-        .then((s) => setNetworks(s.networks ?? []))
-        .catch(() => {});
-    refresh();
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') refresh();
-    };
-    document.addEventListener('visibilitychange', onVisible);
-    const id = setInterval(refresh, 30_000);
-    return () => {
-      document.removeEventListener('visibilitychange', onVisible);
-      clearInterval(id);
-    };
-  }, []);
 
   const vlanLabel = useMemo(() => {
     const m = new Map<number, string>();
     for (const n of networks) {
       if (n.vlanId != null && n.name) m.set(n.vlanId, n.name);
     }
-    return (id: number) => m.get(id) || `VLAN ${id}`;
+    return (id: number) => m.get(id) || String(id);
   }, [networks]);
 
   async function pollStatus() {
@@ -136,7 +122,7 @@ export default function Hosts() {
       if (h.isNew) isNewCount++;
       if (h.vlanId != null) byVlan.set(h.vlanId, (byVlan.get(h.vlanId) ?? 0) + 1);
     }
-    return { total: hosts.length, online, offline, isNew: isNewCount, byVlan };
+    return { total: hosts.length, online, offline, isNew: isNewCount, known: hosts.length - isNewCount, byVlan };
   }, [hosts]);
 
   const vlans = useMemo(
@@ -148,11 +134,12 @@ export default function Hosts() {
     return hosts.filter((h) => {
       if (filter === 'online' && !h.online) return false;
       if (filter === 'offline' && h.online) return false;
-      if (filter === 'new' && !h.isNew) return false;
+      if (ackFilter === 'new' && !h.isNew) return false;
+      if (ackFilter === 'known' && h.isNew) return false;
       if (vlan != null && h.vlanId !== vlan) return false;
       return true;
     });
-  }, [hosts, filter, vlan]);
+  }, [hosts, filter, ackFilter, vlan]);
 
   const sortedHosts = useMemo(() => {
     if (!sort) return filteredHosts;
@@ -243,7 +230,7 @@ export default function Hosts() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
       <div className="flex items-center gap-2">
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search MAC, IP, name…" className="input flex-1" />
         <button
@@ -268,23 +255,34 @@ export default function Hosts() {
 
       {/* Mobile-only: badge on its own row, inheriting parent's space-y gap */}
       <div className="sm:hidden">
-        <LastScanBadge scan={lastScan} scanning={scanning} />
         <NextScanBadge anchor={nextScanAnchor} scanning={scanning} />
+        <LastScanBadge scan={lastScan} scanning={scanning} />
       </div>
 
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <FilterChip active={filter === 'all'} count={counts.total} onClick={() => setFilter('all')}>All</FilterChip>
         <FilterChip active={filter === 'online'} count={counts.online} onClick={() => setFilter('online')}>Online</FilterChip>
         <FilterChip active={filter === 'offline'} count={counts.offline} onClick={() => setFilter('offline')}>Offline</FilterChip>
-        <FilterChip active={filter === 'new'} count={counts.isNew} onClick={() => setFilter('new')}>NEW</FilterChip>
+        <span className="mx-1 text-slate-300">|</span>
+        <FilterChip active={ackFilter === 'all'} count={counts.total} onClick={() => setAckFilter('all')}>All</FilterChip>
+        <FilterChip active={ackFilter === 'new'} count={counts.isNew} onClick={() => setAckFilter('new')}>New</FilterChip>
+        <FilterChip active={ackFilter === 'known'} count={counts.known} onClick={() => setAckFilter('known')}>Known</FilterChip>
         <span className="mx-1 text-slate-300">|</span>
         <FilterChip active={vlan === null} count={counts.total} onClick={() => setVlan(null)}>Any VLAN</FilterChip>
-        {vlans.map((v) => (
-          <FilterChip key={v} active={vlan === v} count={counts.byVlan.get(v) ?? 0} onClick={() => setVlan(v)}>{vlanLabel(v)}</FilterChip>
-        ))}
+        {vlans.map((v) => {
+          // Filter chips always prefix "VLAN" so the section reads cleanly
+          // even when no name is configured. The host badges in the table
+          // stay terse (just the id or name) — see vlanLabel() above.
+          const named = networks.find((n) => n.vlanId === v && n.name);
+          return (
+            <FilterChip key={v} active={vlan === v} count={counts.byVlan.get(v) ?? 0} onClick={() => setVlan(v)}>
+              {named ? named.name : `VLAN ${v}`}
+            </FilterChip>
+          );
+        })}
         {/* Desktop-only: badge right-aligned on the filter row */}
-        <LastScanBadge scan={lastScan} scanning={scanning} className="ml-auto hidden sm:inline-flex" />
-        <NextScanBadge anchor={nextScanAnchor} scanning={scanning} className="hidden sm:inline-flex" />
+        <NextScanBadge anchor={nextScanAnchor} scanning={scanning} className="ml-auto hidden sm:inline-flex" />
+        <LastScanBadge scan={lastScan} scanning={scanning} className="hidden sm:inline-flex" />
       </div>
 
       {hosts.length === 0 ? (
@@ -292,7 +290,7 @@ export default function Hosts() {
           No hosts yet. {scanning ? 'A scan is in progress…' : <>Try <button onClick={runScan} className="underline">running a scan</button> or check Settings → Networks.</>}
         </p>
       ) : (
-        <>
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
         {/* Mobile: card list */}
         <ul className="space-y-2 sm:hidden">
           {sortedHosts.map((h) => (
@@ -434,7 +432,7 @@ export default function Hosts() {
             </tbody>
           </table>
         </div>
-        </>
+        </div>
       )}
     </div>
   );

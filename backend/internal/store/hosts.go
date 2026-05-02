@@ -3,6 +3,7 @@ package store
 import (
 	"database/sql"
 	"errors"
+	"net"
 	"strings"
 	"time"
 )
@@ -261,6 +262,85 @@ func (s *Store) DeleteHost(mac string) error {
 func (s *Store) DeleteAllHosts() error {
 	_, err := s.db.Exec(`DELETE FROM hosts`)
 	return err
+}
+
+// RetagHosts re-evaluates each host's vlan_id and network_name against the
+// supplied network list, matching by CIDR containment. Run this after the
+// user saves network changes in Settings so a VLAN rename/retag reflects
+// on existing hosts immediately, without forcing a full rescan. Hosts that
+// don't match any configured CIDR are cleared (vlan_id = NULL).
+func (s *Store) RetagHosts(networks []NetworkRule) error {
+	rows, err := s.db.Query(`SELECT id, ip FROM hosts`)
+	if err != nil {
+		return err
+	}
+	type row struct {
+		id int64
+		ip string
+	}
+	var hosts []row
+	for rows.Next() {
+		var r row
+		if err := rows.Scan(&r.id, &r.ip); err != nil {
+			rows.Close()
+			return err
+		}
+		hosts = append(hosts, r)
+	}
+	rows.Close()
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for _, h := range hosts {
+		var vlanID *int
+		var name string
+		for _, n := range networks {
+			if n.Contains(h.ip) {
+				if n.VLANID != 0 {
+					v := n.VLANID
+					vlanID = &v
+				}
+				name = n.Name
+				break
+			}
+		}
+		if _, err := tx.Exec(
+			`UPDATE hosts SET vlan_id = ?, network_name = ? WHERE id = ?`,
+			vlanID, name, h.id,
+		); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// NetworkRule is a minimal projection of the user-configured Networks slice
+// passed to RetagHosts. The store package owns the IP-in-CIDR check so the
+// settings handler doesn't have to import net.
+type NetworkRule struct {
+	CIDR   string
+	VLANID int
+	Name   string
+}
+
+// Contains reports whether ip is inside the rule's CIDR. Empty/invalid
+// inputs return false.
+func (r NetworkRule) Contains(ip string) bool {
+	if r.CIDR == "" || ip == "" {
+		return false
+	}
+	_, ipnet, err := net.ParseCIDR(r.CIDR)
+	if err != nil {
+		return false
+	}
+	parsed := net.ParseIP(ip)
+	if parsed == nil {
+		return false
+	}
+	return ipnet.Contains(parsed)
 }
 
 func (s *Store) UpdateHostMeta(mac, customName, customVendor string, notifyOffline, isNew bool) error {
