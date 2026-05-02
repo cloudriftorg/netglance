@@ -1,7 +1,16 @@
 #!/bin/sh
 
-# Start netglance at boot if enabled in the OPNsense config.
-# Render the env template first so the daemon picks up the latest config.
+# Boot hook: start netglance only if the OPNsense plugin is enabled.
+# Mirrors the pattern used by official plugins (ntopng, wireguard, …):
+# guard on the model's `enabled` flag, then issue a `restart` (idempotent)
+# via configd. The `-d 30` flag gives configd plenty of time to come up
+# on slow boots — without it the call silently fails if configd isn't
+# ready yet, leaving the daemon down even though the user enabled it.
 
-/usr/local/sbin/configctl -d 5 template reload OPNsense/Netglance >/dev/null 2>&1
-/usr/local/sbin/configctl -d 5 netglance start >/dev/null 2>&1
+[ "$(/usr/local/sbin/pluginctl -g OPNsense.netglance.general.enabled)" = "1" ] || exit 0
+
+# Render the env template from the model first so the daemon picks up
+# the current scanIfaces / httpPort, then restart so we land in a known
+# state regardless of whether the daemon is already running.
+/usr/local/sbin/configctl -d 30 template reload OPNsense/Netglance
+/usr/local/sbin/configctl -d 30 netglance restart
