@@ -4,10 +4,11 @@
 [![Latest release](https://img.shields.io/github/v/release/netglance/netglance?include_prereleases&sort=semver)](https://github.com/netglance/netglance/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-> 🎉 **v1.0** — first stable release. The Docker, native and OPNsense
-> plugin install paths are all live; the API and config schema are
-> committed. Bug reports very welcome — open an issue if anything
-> bites.
+> ⚠️ **Early development.** Netglance is under active development —
+> the OPNsense plugin in particular has not been hardened on a wide
+> range of hosts yet. Expect rough edges, breaking config changes
+> between minor versions, and don't deploy on a production firewall
+> you can't recover from a snapshot. Bug reports very welcome.
 
 > 🧪 **Vibe-coded.** Netglance was built largely through vibe coding
 > with an LLM in the loop — designed and shipped quickly, not yet
@@ -62,6 +63,11 @@ pkg update && pkg install -y os-netglance
 
 Then go to **Services → Netglance** in your OPNsense GUI, enable the plugin,
 pick interfaces, save. Done. The web UI opens on port 8473.
+
+> ⚠️ **Public release status**: the OPNsense plugin path requires the
+> repo's `gh-pages` branch to be live with a current build. See
+> [docs/install/opnsense-plugin.md](docs/install/opnsense-plugin.md) for
+> the full setup including signature verification.
 
 ### Docker in 30 seconds
 
