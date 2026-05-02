@@ -280,9 +280,14 @@ export default function Hosts() {
             </FilterChip>
           );
         })}
-        {/* Desktop-only: badge right-aligned on the filter row */}
-        <NextScanBadge anchor={nextScanAnchor} scanning={scanning} className="ml-auto hidden sm:inline-flex" />
-        <LastScanBadge scan={lastScan} scanning={scanning} className="hidden sm:inline-flex" />
+        {/* Desktop-only: badges in a right-aligned wrapper. The wrapper
+            owns ml-auto so the badges stay pushed right even when
+            NextScanBadge renders null (e.g. while scanning is in progress
+            and only the "Scanning…" pill from LastScanBadge is visible). */}
+        <div className="ml-auto hidden items-center gap-2 sm:flex">
+          <NextScanBadge anchor={nextScanAnchor} scanning={scanning} />
+          <LastScanBadge scan={lastScan} scanning={scanning} />
+        </div>
       </div>
 
       {hosts.length === 0 ? (

@@ -32,6 +32,11 @@ func NewRouter(st *store.Store, webuiHandler http.Handler, opts RouterOptions) h
 		r.Post("/setup", setupHandler(st))
 		r.Post("/login", loginHandler(st))
 		r.Post("/logout", logoutHandler(st))
+		// /system/managed reports a non-sensitive deployment hint (am I
+		// being run by an external orchestrator?). The Setup wizard
+		// needs it BEFORE the admin user exists, so it lives outside
+		// the auth-required group.
+		r.Get("/system/managed", managedHandler(opts.Managed))
 
 		r.Group(func(r chi.Router) {
 			r.Use(auth.RequireAuth(st))
@@ -48,7 +53,6 @@ func NewRouter(st *store.Store, webuiHandler http.Handler, opts RouterOptions) h
 			r.Get("/scan/status", scanStatusHandler(st))
 
 			r.Get("/system/interfaces", listInterfacesHandler())
-			r.Get("/system/managed", managedHandler(opts.Managed))
 
 			r.Get("/settings", getSettingsHandler(st))
 			r.Put("/settings", putSettingsHandler(st, opts.Managed))
