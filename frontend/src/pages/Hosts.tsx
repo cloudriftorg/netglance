@@ -263,7 +263,7 @@ export default function Hosts() {
         <FilterChip active={filter === 'all'} count={counts.total} onClick={() => setFilter('all')}>All</FilterChip>
         <FilterChip active={filter === 'online'} count={counts.online} onClick={() => setFilter('online')}>Online</FilterChip>
         <FilterChip active={filter === 'offline'} count={counts.offline} onClick={() => setFilter('offline')}>Offline</FilterChip>
-        <FilterChip active={filter === 'new'} count={counts.isNew} onClick={() => setFilter('new')}>New</FilterChip>
+        <FilterChip active={filter === 'new'} count={counts.isNew} onClick={() => setFilter('new')}>NEW</FilterChip>
         <span className="mx-1 text-slate-300">|</span>
         <FilterChip active={vlan === null} count={counts.total} onClick={() => setVlan(null)}>Any VLAN</FilterChip>
         {vlans.map((v) => (
