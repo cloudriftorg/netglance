@@ -53,13 +53,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             role="status"
             onClick={() => dismiss(t.id)}
             className={clsx(
-              'pointer-events-auto flex w-full max-w-sm cursor-pointer items-start gap-2.5 rounded-lg px-4 py-2.5 text-sm font-medium shadow-lg ring-1 transition-all backdrop-blur',
+              'pointer-events-auto flex w-full max-w-sm cursor-pointer items-start gap-2.5 rounded-lg px-4 py-2.5 text-sm font-medium shadow-lg ring-1 transition-all',
               t.kind === 'success' &&
-                'bg-emerald-600 text-white ring-emerald-700/20 dark:bg-emerald-500/15 dark:text-emerald-100 dark:ring-emerald-400/30',
+                'bg-emerald-600 text-white ring-emerald-700 dark:bg-emerald-900 dark:text-emerald-100 dark:ring-emerald-400',
               t.kind === 'error' &&
-                'bg-red-600 text-white ring-red-700/20 dark:bg-red-500/15 dark:text-red-100 dark:ring-red-400/30',
+                'bg-red-600 text-white ring-red-700 dark:bg-red-900 dark:text-red-100 dark:ring-red-400',
               t.kind === 'info' &&
-                'bg-sky-600 text-white ring-sky-700/20 dark:bg-sky-500/15 dark:text-sky-100 dark:ring-sky-400/30'
+                'bg-sky-600 text-white ring-sky-700 dark:bg-sky-900 dark:text-sky-100 dark:ring-sky-400'
             )}
           >
             <ToastIcon kind={t.kind} />

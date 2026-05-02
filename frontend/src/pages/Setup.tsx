@@ -62,7 +62,7 @@ export default function Setup({ onDone }: { onDone: () => void }) {
               localStorage.setItem('netglance.dev.skipAuth', '1');
               window.location.href = '/';
             }}
-            className="rounded-md bg-amber-500/90 px-3 py-1.5 text-xs font-medium text-white shadow-lg hover:bg-amber-600"
+            className="rounded-md bg-amber-500 px-3 py-1.5 text-xs font-medium text-white shadow-lg hover:bg-amber-600"
             title="Backend unreachable — preview the UI shell without it"
           >
             Skip wizard (dev, backend down)

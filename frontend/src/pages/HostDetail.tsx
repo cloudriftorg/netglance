@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import clsx from 'clsx';
+import { ArrowLeft } from 'lucide-react';
 import { api, Host, HostEvent } from '../lib/api';
 import { errMessage, useToast } from '../components/Toast';
 import { useConfirm } from '../components/Confirm';
@@ -74,15 +75,27 @@ export default function HostDetail() {
   const displayName = host.customName || host.ip;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pb-4">
-      <div className="flex items-center justify-between">
-        <Link to="/" className="text-sm text-slate-500 hover:underline">← Back</Link>
+    // Match the layout of the Hosts / Settings pages: page wrapper is a
+    // flex column whose top row stays put and only the inner block
+    // scrolls. Without this the Back / Save row scrolled away on long
+    // event lists, forcing the user to scroll back up to leave the page.
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <div className="flex shrink-0 items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </button>
         <button onClick={save} disabled={saving} className="btn-primary">
           {saving && <Spinner className="mr-2 -ml-1" />}
           {saving ? 'Saving…' : 'Save'}
         </button>
       </div>
 
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pb-4">
       <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="text-lg font-semibold">{displayName}</h2>
@@ -90,15 +103,15 @@ export default function HostDetail() {
             className={clsx(
               'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium',
               host.online
-                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200'
-                : 'bg-slate-100 text-slate-600 dark:bg-slate-700/50 dark:text-slate-300',
+                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200'
+                : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
             )}
           >
             <span className={clsx('h-1.5 w-1.5 rounded-full', host.online ? 'bg-emerald-500' : 'bg-slate-400')} />
             {host.online ? 'Online' : 'Offline'}
           </span>
           {host.isNew && (
-            <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800 dark:bg-amber-500/20 dark:text-amber-200">
+            <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800 dark:bg-amber-900 dark:text-amber-200">
               NEW
             </span>
           )}
@@ -174,11 +187,11 @@ export default function HostDetail() {
             )}
           </section>
 
-          <section className="rounded-2xl border border-red-200 bg-red-50/50 p-4 dark:border-red-500/30 dark:bg-red-500/5">
+          <section className="rounded-2xl border border-red-200 bg-red-50 p-4 dark:border-red-700 dark:bg-red-950">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h3 className="text-sm font-semibold text-red-700 dark:text-red-300">Danger zone</h3>
-                <p className="mt-0.5 text-xs text-red-700/80 dark:text-red-300/80">
+                <p className="mt-0.5 text-xs text-red-700 dark:text-red-300">
                   Removes the host and its history. It will reappear flagged as NEW the next time it answers a scan.
                 </p>
               </div>
@@ -186,13 +199,14 @@ export default function HostDetail() {
                 type="button"
                 onClick={deleteHost}
                 disabled={deleting}
-                className="rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-60 dark:border-red-500/40 dark:bg-transparent dark:text-red-300 dark:hover:bg-red-500/10"
+                className="rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-60 dark:border-red-600 dark:bg-transparent dark:text-red-300 dark:hover:bg-red-950"
               >
                 {deleting ? 'Deleting…' : 'Delete this host'}
               </button>
             </div>
           </section>
         </div>
+      </div>
       </div>
     </div>
   );

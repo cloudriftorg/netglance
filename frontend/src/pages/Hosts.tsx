@@ -4,7 +4,7 @@ import clsx from 'clsx';
 import { api, Host, NetworkConfig, Scan } from '../lib/api';
 import { errMessage, useToast } from '../components/Toast';
 import { useConfirm } from '../components/Confirm';
-import { Clock, Paintbrush, RefreshCw, Trash2 } from 'lucide-react';
+import { Clock, Filter, Paintbrush, RefreshCw, Trash2 } from 'lucide-react';
 
 export default function Hosts() {
   const navigate = useNavigate();
@@ -23,6 +23,22 @@ export default function Hosts() {
   // but server polls realign the badge so any clock skew never accumulates.
   const [nextScanAnchor, setNextScanAnchor] = useState<{ remaining: number; at: number } | null>(null);
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' } | null>(loadSortPref);
+  // Persist the show/hide-filters preference across reloads so the
+  // user doesn't have to flip it back on every visit.
+  const [showFilters, setShowFilters] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('netglance.hosts.showFilters') !== '0';
+    } catch {
+      return true;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem('netglance.hosts.showFilters', showFilters ? '1' : '0');
+    } catch {
+      /* storage disabled — silent */
+    }
+  }, [showFilters]);
 
   // Persist sort preference across reloads. `null` (unsorted) clears the
   // saved key so a fresh load really does come up unsorted.
@@ -247,6 +263,20 @@ export default function Hosts() {
       <div className="flex items-center gap-2">
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search MAC, IP, name…" className="input flex-1" />
         <button
+          onClick={() => setShowFilters((v) => !v)}
+          aria-label={showFilters ? 'Hide filters' : 'Show filters'}
+          aria-pressed={showFilters}
+          title={showFilters ? 'Hide filters' : 'Show filters'}
+          className={clsx(
+            'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border p-0 transition-colors sm:h-10 sm:w-10',
+            showFilters
+              ? 'border-brand-500 bg-brand-500 text-white hover:bg-brand-600'
+              : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800',
+          )}
+        >
+          <Filter className="h-4 w-4" />
+        </button>
+        <button
           onClick={runScan}
           disabled={scanning}
           aria-label={scanning ? 'Scan in progress' : 'Scan now'}
@@ -266,17 +296,16 @@ export default function Hosts() {
         </button>
       </div>
 
-      {/* Mobile-only: badges on their own row, wrapping cleanly with a gap
-          so "Last scan …" doesn't sit flush against "Next in …". */}
-      <div className="flex flex-wrap items-center gap-2 sm:hidden">
-        {/* On mobile the user's eye lands on the scan history first
-            (what was found, when), then the countdown for the next
-            cycle — desktop keeps the countdown-then-history order. */}
-        <LastScanBadge scan={lastScan} scanning={scanning} />
-        <NextScanBadge anchor={nextScanAnchor} scanning={scanning} />
+      {/* Scan badges live on their own row so they're always visible
+          regardless of the filter chips (which the user can hide).
+          Mobile keeps "Last scan" first; desktop right-aligns the pair
+          and leads with the countdown. */}
+      <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+        <LastScanBadge scan={lastScan} scanning={scanning} className="sm:order-2" />
+        <NextScanBadge anchor={nextScanAnchor} scanning={scanning} className="sm:order-1" />
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 text-sm">
+      <div className={clsx('flex-wrap items-center gap-2 text-sm', showFilters ? 'flex' : 'hidden')}>
         <FilterChip active={filter === 'all'} count={counts.total} onClick={() => setFilter('all')}>All</FilterChip>
         <FilterChip active={filter === 'online'} count={counts.online} onClick={() => setFilter('online')}>Online</FilterChip>
         <FilterChip active={filter === 'offline'} count={counts.offline} onClick={() => setFilter('offline')}>Offline</FilterChip>
@@ -297,14 +326,6 @@ export default function Hosts() {
             </FilterChip>
           );
         })}
-        {/* Desktop-only: badges in a right-aligned wrapper. The wrapper
-            owns ml-auto so the badges stay pushed right even when
-            NextScanBadge renders null (e.g. while scanning is in progress
-            and only the "Scanning…" pill from LastScanBadge is visible). */}
-        <div className="ml-auto hidden items-center gap-2 sm:flex">
-          <NextScanBadge anchor={nextScanAnchor} scanning={scanning} />
-          <LastScanBadge scan={lastScan} scanning={scanning} />
-        </div>
       </div>
 
       {hosts.length === 0 ? (
@@ -346,7 +367,7 @@ export default function Hosts() {
                   onClick={() => deleteHost(h)}
                   title="Delete host"
                   aria-label="Delete host"
-                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-500/20 dark:hover:text-red-300"
+                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900 dark:hover:text-red-300"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -356,15 +377,15 @@ export default function Hosts() {
                   className={clsx(
                     'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium',
                     h.online
-                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200'
-                      : 'bg-slate-100 text-slate-600 dark:bg-slate-700/50 dark:text-slate-300',
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200'
+                      : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
                   )}
                 >
                   <span className={clsx('h-1.5 w-1.5 rounded-full', h.online ? 'bg-emerald-500' : 'bg-slate-400')} />
                   {h.online ? 'Online' : 'Offline'}
                 </span>
                 {h.vlanId != null && (
-                  <span className="inline-block rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700 dark:bg-brand-700/20 dark:text-brand-50">
+                  <span className="inline-block rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700 dark:bg-brand-900 dark:text-brand-50">
                     {vlanLabel(h.vlanId)}
                   </span>
                 )}
@@ -395,7 +416,7 @@ export default function Hosts() {
               <col className="w-28" />
               <col className="w-16" />
             </colgroup>
-            <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-400">
+            <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-400">
               <tr>
                 <SortableTh label="Name" sortKey="name" sort={sort} onClick={clickSort} />
                 <SortableTh label="IP" sortKey="ip" sort={sort} onClick={clickSort} />
@@ -425,7 +446,7 @@ export default function Hosts() {
                   <td className="truncate px-3 font-mono text-xs text-slate-700 dark:text-slate-300">{h.ip}</td>
                   <td className="px-3">
                     {h.vlanId != null ? (
-                      <span className="inline-block max-w-full truncate rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700 dark:bg-brand-700/20 dark:text-brand-50" title={vlanLabel(h.vlanId)}>
+                      <span className="inline-block max-w-full truncate rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700 dark:bg-brand-900 dark:text-brand-50" title={vlanLabel(h.vlanId)}>
                         {vlanLabel(h.vlanId)}
                       </span>
                     ) : (
@@ -441,8 +462,8 @@ export default function Hosts() {
                       className={clsx(
                         'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium',
                         h.online
-                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200'
-                          : 'bg-slate-100 text-slate-600 dark:bg-slate-700/50 dark:text-slate-300'
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200'
+                          : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
                       )}
                     >
                       <span className={clsx('h-1.5 w-1.5 rounded-full', h.online ? 'bg-emerald-500' : 'bg-slate-400')} />
@@ -461,7 +482,7 @@ export default function Hosts() {
                         onClick={() => deleteHost(h)}
                         title="Delete host"
                         aria-label="Delete host"
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 transition hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-500/20 dark:hover:text-red-300"
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 transition hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900 dark:hover:text-red-300"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -485,7 +506,7 @@ function LastScanBadge({ scan, scanning, className }: { scan: Scan | null; scann
       <span
         className={clsx(
           base,
-          'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200',
+          'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200',
           className,
         )}
       >
@@ -695,8 +716,8 @@ function NotifyDot({ on, title }: { on: boolean; title: string }) {
       className={clsx(
         'inline-block h-2 w-2 rounded-full',
         on
-          ? 'bg-brand-500 ring-1 ring-brand-500/30'
-          : 'bg-slate-300 ring-1 ring-slate-300/30 dark:bg-slate-600 dark:ring-slate-600/30',
+          ? 'bg-brand-500 ring-1 ring-brand-500'
+          : 'bg-slate-300 ring-1 ring-slate-300 dark:bg-slate-600 dark:ring-slate-600',
       )}
     />
   );
@@ -709,7 +730,7 @@ function NewBadge({ onClick }: { onClick: () => void }) {
       onClick={onClick}
       title="Acknowledge — clears the NEW flag"
       aria-label="Acknowledge new host"
-      className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800 transition hover:bg-amber-200 dark:bg-amber-500/20 dark:text-amber-200 dark:hover:bg-amber-500/30"
+      className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800 transition hover:bg-amber-200 dark:bg-amber-900 dark:text-amber-200 dark:hover:bg-amber-800"
     >
       NEW
     </button>
@@ -743,7 +764,7 @@ function FilterChip({
           className={clsx(
             'rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none',
             active
-              ? 'bg-white/20 text-white'
+              ? 'bg-brand-700 text-white'
               : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
           )}
         >

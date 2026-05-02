@@ -12,7 +12,7 @@ export default function Layout({ children, onLogout }: Props) {
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <header
-        className="z-10 shrink-0 border-b border-slate-200 bg-white/80 backdrop-blur dark:border-slate-800 dark:bg-slate-900/80"
+        className="z-10 shrink-0 border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
         // Respect the iOS status bar / notch when installed as a PWA on
         // the home screen. viewport-fit=cover (set in index.html) extends
         // the page under the notch; without this padding the title and

@@ -106,7 +106,7 @@ export default function SettingsPage() {
           {managed.managed && <ManagedBadge />}
         </div>
         <button onClick={save} disabled={saving} className="btn-primary">
-          {saving ? 'Saving…' : 'Save settings'}
+          {saving ? 'Saving…' : 'Save'}
         </button>
       </div>
 
@@ -193,7 +193,7 @@ export default function SettingsPage() {
                 onChange={(e) => updateNet(i, { name: e.target.value })}
               />
               <button
-                className="col-span-1 col-start-12 row-start-1 inline-flex h-9 w-9 items-center justify-center justify-self-center rounded-full text-slate-400 transition hover:bg-red-100 hover:text-red-600 disabled:opacity-40 dark:hover:bg-red-500/20 dark:hover:text-red-300 sm:row-start-auto"
+                className="col-span-1 col-start-12 row-start-1 inline-flex h-9 w-9 items-center justify-center justify-self-center rounded-full text-slate-400 transition hover:bg-red-100 hover:text-red-600 disabled:opacity-40 dark:hover:bg-red-900 dark:hover:text-red-300 sm:row-start-auto"
                 disabled={isManaged('networks')}
                 onClick={() => update('networks', s.networks.filter((_, j) => j !== i))}
                 aria-label="Remove network"
@@ -215,11 +215,7 @@ export default function SettingsPage() {
         <Section
           title="SMTP"
           desc="Plain (no auth/no TLS) works for an internal LAN relay. STARTTLS or implicit TLS for external providers."
-          action={
-            <button onClick={testEmail} className="btn-secondary text-sm">
-              Send test email
-            </button>
-          }
+          action={<TestEmailButton onTest={testEmail} />}
         >
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <Field label="Host">
@@ -323,17 +319,17 @@ export default function SettingsPage() {
             </label>
           </Section>
 
-          <section className="space-y-3 rounded-2xl border border-red-200 bg-red-50/50 p-4 dark:border-red-500/30 dark:bg-red-500/5">
+          <section className="space-y-3 rounded-2xl border border-red-200 bg-red-50 p-4 dark:border-red-700 dark:bg-red-950">
             <div>
               <h3 className="text-sm font-semibold text-red-700 dark:text-red-300">Danger zone</h3>
-              <p className="mt-0.5 text-xs text-red-700/80 dark:text-red-300/80">
+              <p className="mt-0.5 text-xs text-red-700 dark:text-red-300">
                 Reset wipes the database (admin user, hosts, history, settings) and restarts the setup wizard. This cannot be undone.
               </p>
             </div>
             <button
               type="button"
               onClick={() => setResetOpen(true)}
-              className="rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100 dark:border-red-500/40 dark:bg-transparent dark:text-red-300 dark:hover:bg-red-500/10"
+              className="rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100 dark:border-red-600 dark:bg-transparent dark:text-red-300 dark:hover:bg-red-950"
             >
               Reset application
             </button>
@@ -427,6 +423,35 @@ function ResetDialog({ onClose, onConfirmed }: { onClose: () => void; onConfirme
 // page-wide banner. The badge stays compact when the user already
 // knows their netglance is OPNsense-managed; hover (desktop) or tap
 // (touch) reveals the full message.
+// TestEmailButton fires the SMTP self-test and surfaces a hover/tap
+// hint reminding the user that the test reads the *persisted* config
+// — unsaved form edits won't be picked up until they hit Save.
+function TestEmailButton({ onTest }: { onTest: () => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span
+      className="relative inline-flex"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <button
+        type="button"
+        onClick={onTest}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+        className="btn-secondary text-sm"
+      >
+        Test email
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full z-20 mt-2 w-64 rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600 shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+          Save your settings first — the test uses the saved SMTP config, not the unsaved form values.
+        </div>
+      )}
+    </span>
+  );
+}
+
 function ManagedBadge() {
   const [open, setOpen] = useState(false);
   return (
@@ -436,14 +461,15 @@ function ManagedBadge() {
         onClick={() => setOpen((v) => !v)}
         onMouseEnter={() => setOpen(true)}
         onMouseLeave={() => setOpen(false)}
-        className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200"
+        className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:border-amber-600 dark:bg-amber-950 dark:text-amber-200"
         aria-label="Managed by OPNsense — details"
       >
         <Info className="h-3 w-3" />
-        Managed by OPNsense
+        <span className="hidden sm:inline">Managed by OPNsense</span>
+        <span className="sm:hidden">OPNsense</span>
       </button>
       {open && (
-        <div className="absolute left-0 top-full z-20 mt-2 w-72 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 shadow-lg dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100">
+        <div className="absolute left-0 top-full z-20 mt-2 w-72 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 shadow-lg dark:border-amber-600 dark:bg-amber-950 dark:text-amber-100">
           Scan interfaces, networks, interval and listen port are read-only here — edit them from <em>Services → Netglance</em> in your OPNsense panel. Notifications, SMTP and per-host preferences remain editable.
         </div>
       )}

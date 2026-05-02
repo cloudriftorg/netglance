@@ -102,7 +102,7 @@ export default function IfacePicker({
                   >
                     <input type="checkbox" checked onChange={() => toggle(name)} />
                     <span className="font-medium text-amber-700 dark:text-amber-300">{name}</span>
-                    <span className="ml-auto text-xs text-amber-700/70 dark:text-amber-300/70">inactive</span>
+                    <span className="ml-auto text-xs text-amber-700 dark:text-amber-300">inactive</span>
                   </label>
                 ))}
               </div>
