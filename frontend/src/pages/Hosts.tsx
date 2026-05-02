@@ -181,6 +181,7 @@ export default function Hosts() {
         customName: h.customName || '',
         customVendor: h.customVendor || '',
         notifyOffline: h.notifyOffline,
+        notifyOnline: h.notifyOnline,
         isNew: false,
       });
       setHosts((cur) => cur.map((x) => (x.mac === h.mac ? { ...x, isNew: false } : x)));
@@ -724,12 +725,12 @@ const DEV_DUMMY_NETWORKS: NetworkConfig[] = [
 ];
 
 const DEV_DUMMY_HOSTS: Host[] = [
-  { id: 1, mac: 'aa:bb:cc:00:00:01', ip: '192.168.1.10', vlanId: 1, vendor: 'Apple, Inc.', customName: 'Workstation', firstSeen: 1735689600, lastSeen: Math.floor(Date.now() / 1000), online: true, isNew: false, notifyOffline: true },
-  { id: 2, mac: 'aa:bb:cc:00:00:02', ip: '192.168.1.11', vlanId: 1, vendor: 'Sonos, Inc.', customName: 'Sonos Living', firstSeen: 1735689600, lastSeen: Math.floor(Date.now() / 1000), online: true, isNew: false, notifyOffline: false },
-  { id: 3, mac: 'aa:bb:cc:00:00:03', ip: '192.168.1.20', vlanId: 1, vendor: 'Synology, Inc.', customName: 'NAS', firstSeen: 1735689600, lastSeen: Math.floor(Date.now() / 1000), online: true, isNew: true, notifyOffline: true },
-  { id: 4, mac: 'aa:bb:cc:00:00:04', ip: '192.168.20.50', vlanId: 20, vendor: 'Espressif Inc.', customName: 'ESP32 Sensor', firstSeen: 1735689600, lastSeen: Math.floor(Date.now() / 1000) - 600, online: false, isNew: false, notifyOffline: false },
-  { id: 5, mac: 'aa:bb:cc:00:00:05', ip: '192.168.20.51', vlanId: 20, vendor: 'TP-Link Corp.', customName: 'Smart Plug', firstSeen: 1735689600, lastSeen: Math.floor(Date.now() / 1000), online: true, isNew: true, notifyOffline: false },
-  { id: 6, mac: 'aa:bb:cc:00:00:06', ip: '192.168.30.5', vlanId: 30, vendor: '(Unknown: locally administered)', customName: '', firstSeen: 1735689600, lastSeen: Math.floor(Date.now() / 1000), online: true, isNew: true, notifyOffline: false },
-  { id: 7, mac: 'aa:bb:cc:00:00:07', ip: '192.168.1.50', vlanId: 1, vendor: 'Raspberry Pi Foundation', customName: 'Pi 4', firstSeen: 1735689600, lastSeen: Math.floor(Date.now() / 1000), online: true, isNew: false, notifyOffline: true },
-  { id: 8, mac: 'aa:bb:cc:00:00:08', ip: '192.168.1.99', vlanId: 1, vendor: 'Intel Corporate', customName: '', firstSeen: 1735689600, lastSeen: Math.floor(Date.now() / 1000) - 3600, online: false, isNew: false, notifyOffline: false },
+  { id: 1, mac: 'aa:bb:cc:00:00:01', ip: '192.168.1.10', vlanId: 1, vendor: 'Apple, Inc.', customName: 'Workstation', firstSeen: 1735689600, lastSeen: Math.floor(Date.now() / 1000), online: true, isNew: false, notifyOffline: true, notifyOnline: false },
+  { id: 2, mac: 'aa:bb:cc:00:00:02', ip: '192.168.1.11', vlanId: 1, vendor: 'Sonos, Inc.', customName: 'Sonos Living', firstSeen: 1735689600, lastSeen: Math.floor(Date.now() / 1000), online: true, isNew: false, notifyOffline: false, notifyOnline: false },
+  { id: 3, mac: 'aa:bb:cc:00:00:03', ip: '192.168.1.20', vlanId: 1, vendor: 'Synology, Inc.', customName: 'NAS', firstSeen: 1735689600, lastSeen: Math.floor(Date.now() / 1000), online: true, isNew: true, notifyOffline: true, notifyOnline: false },
+  { id: 4, mac: 'aa:bb:cc:00:00:04', ip: '192.168.20.50', vlanId: 20, vendor: 'Espressif Inc.', customName: 'ESP32 Sensor', firstSeen: 1735689600, lastSeen: Math.floor(Date.now() / 1000) - 600, online: false, isNew: false, notifyOffline: false, notifyOnline: false },
+  { id: 5, mac: 'aa:bb:cc:00:00:05', ip: '192.168.20.51', vlanId: 20, vendor: 'TP-Link Corp.', customName: 'Smart Plug', firstSeen: 1735689600, lastSeen: Math.floor(Date.now() / 1000), online: true, isNew: true, notifyOffline: false, notifyOnline: false },
+  { id: 6, mac: 'aa:bb:cc:00:00:06', ip: '192.168.30.5', vlanId: 30, vendor: '(Unknown: locally administered)', customName: '', firstSeen: 1735689600, lastSeen: Math.floor(Date.now() / 1000), online: true, isNew: true, notifyOffline: false, notifyOnline: false },
+  { id: 7, mac: 'aa:bb:cc:00:00:07', ip: '192.168.1.50', vlanId: 1, vendor: 'Raspberry Pi Foundation', customName: 'Pi 4', firstSeen: 1735689600, lastSeen: Math.floor(Date.now() / 1000), online: true, isNew: false, notifyOffline: true, notifyOnline: false },
+  { id: 8, mac: 'aa:bb:cc:00:00:08', ip: '192.168.1.99', vlanId: 1, vendor: 'Intel Corporate', customName: '', firstSeen: 1735689600, lastSeen: Math.floor(Date.now() / 1000) - 3600, online: false, isNew: false, notifyOffline: false, notifyOnline: false },
 ];
