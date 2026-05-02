@@ -6,6 +6,23 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.1] — 2026-05-03
+
+### Security
+- **FreeBSD pkg repo is now actually signed.** The `pkg-repo` workflow
+  was conditionally signing on `PKG_SIGN_KEY`, but the secret had
+  never been set, so every published release had been served
+  unsigned and the bundled `netglance.conf` hardcoded
+  `signature_type: "none"`. RSA-4096 keypair generated, secret
+  stored in repo Actions secrets, conf is now generated to match
+  what the build produced.
+- Pubkey fingerprint published in [README](README.md#package-signing-key)
+  for out-of-band verification against the file pkg(8) downloads.
+- Install docs default to the signed flow (two `fetch` calls — key
+  + conf — instead of one).
+
+[1.0.1]: https://github.com/netglance/netglance/releases/tag/v1.0.1
+
 ## [1.0.0] — 2026-05-03
 
 First production release. Folds in everything shipped through the
