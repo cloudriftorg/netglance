@@ -323,6 +323,26 @@ export default function Hosts() {
         <p className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-slate-700">
           No hosts yet. {scanning ? 'A scan is in progress…' : <>Try <button onClick={runScan} className="underline">running a scan</button> or check Settings → Networks.</>}
         </p>
+      ) : sortedHosts.length === 0 ? (
+        // Same dashed-border empty box, but worded for "the filters
+        // hide everything" rather than "the DB is empty". Without this
+        // branch the table just rendered an empty body and looked
+        // broken.
+        <p className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-slate-700">
+          No hosts match the current filters.{' '}
+          <button
+            onClick={() => {
+              setQ('');
+              setFilter('all');
+              setAckFilter('all');
+              setVlan(null);
+            }}
+            className="underline"
+          >
+            Clear filters
+          </button>
+          .
+        </p>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
         {/* Mobile: card list */}
