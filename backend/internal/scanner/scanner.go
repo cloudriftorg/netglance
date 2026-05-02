@@ -279,8 +279,8 @@ func notifyTransitions(cfg *NotifyConfig, newHosts, wentOffline, backOnline []*s
 		for _, h := range newHosts {
 			subject := fmt.Sprintf("Netglance — new device on LAN: %s", hostLabel(h))
 			body := fmt.Sprintf(
-				"Netglance just discovered a device it has never seen before.\n\nIP:     %s\nMAC:    %s\nVendor: %s\n",
-				h.IP, h.MAC, vendorLabel(h),
+				"Netglance just discovered a device it has never seen before.\n\nIP:     %s\nMAC:    %s\nVLAN:   %s\nVendor: %s\n",
+				h.IP, h.MAC, vlanLabel(h), vendorLabel(h),
 			)
 			if err := notify.Send(smtp, subject, body); err != nil {
 				logger.Warn("notify new", "mac", h.MAC, "err", err)
@@ -294,8 +294,8 @@ func notifyTransitions(cfg *NotifyConfig, newHosts, wentOffline, backOnline []*s
 			}
 			subject := fmt.Sprintf("Netglance — host went offline: %s", hostLabel(h))
 			body := fmt.Sprintf(
-				"A watched host stopped answering ARP scans.\n\nIP:     %s\nMAC:    %s\nVendor: %s\n",
-				h.IP, h.MAC, vendorLabel(h),
+				"A watched host stopped answering ARP scans.\n\nIP:     %s\nMAC:    %s\nVLAN:   %s\nVendor: %s\n",
+				h.IP, h.MAC, vlanLabel(h), vendorLabel(h),
 			)
 			if err := notify.Send(smtp, subject, body); err != nil {
 				logger.Warn("notify offline", "mac", h.MAC, "err", err)
@@ -309,14 +309,27 @@ func notifyTransitions(cfg *NotifyConfig, newHosts, wentOffline, backOnline []*s
 			}
 			subject := fmt.Sprintf("Netglance — host back online: %s", hostLabel(h))
 			body := fmt.Sprintf(
-				"A watched host has reappeared on the network.\n\nIP:     %s\nMAC:    %s\nVendor: %s\n",
-				h.IP, h.MAC, vendorLabel(h),
+				"A watched host has reappeared on the network.\n\nIP:     %s\nMAC:    %s\nVLAN:   %s\nVendor: %s\n",
+				h.IP, h.MAC, vlanLabel(h), vendorLabel(h),
 			)
 			if err := notify.Send(smtp, subject, body); err != nil {
 				logger.Warn("notify back-online", "mac", h.MAC, "err", err)
 			}
 		}
 	}
+}
+
+// vlanLabel mirrors the badge shown on the Hosts page: prefer the
+// configured network name, fall back to "VLAN <id>", and "—" if the
+// host has no VLAN tag at all.
+func vlanLabel(h *store.Host) string {
+	if h.NetworkName != "" {
+		return h.NetworkName
+	}
+	if h.VLANID != nil {
+		return fmt.Sprintf("VLAN %d", *h.VLANID)
+	}
+	return "—"
 }
 
 func hostLabel(h *store.Host) string {

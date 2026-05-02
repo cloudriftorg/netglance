@@ -30,7 +30,7 @@ func defaultSettings() settingsBundle {
 		ScanEverySeconds: 120,
 		ScanIfaces:       []string{},
 		OfflineAfter:     1,
-		Notify:           NotifyToggles{NewHost: true, Offline: true, BackOnline: false},
+		Notify:           NotifyToggles{NewHost: true, Offline: false, BackOnline: false},
 	}
 }
 

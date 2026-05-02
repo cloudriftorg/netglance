@@ -108,21 +108,20 @@ export default function Hosts() {
   useEffect(() => {
     load();
     pollStatus();
-    // Poll faster when a scan is running OR when the next scheduled scan is
-    // due / overdue, so the badge transitions to "scanning" promptly instead
-    // of sitting on the countdown.
-    const remainingNow = nextScanAnchor
-      ? nextScanAnchor.remaining - Math.floor((Date.now() - nextScanAnchor.at) / 1000)
-      : null;
-    const dueSoon = remainingNow != null && remainingNow <= 2;
-    const interval = scanning || dueSoon ? 1_000 : 5_000;
+    // Poll faster when a scan is running so the badge transitions to
+    // "scanning" promptly instead of sitting on the countdown. Don't add
+    // nextScanAnchor to the deps array: it changes on every poll, which
+    // would tear down + recreate this interval (and trigger an extra
+    // load+pollStatus pair) on every tick — a hot loop that flickers the
+    // badges and burned CPU when the page was idle.
+    const interval = scanning ? 1_000 : 5_000;
     const id = setInterval(() => {
       load();
       pollStatus();
     }, interval);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, scanning, nextScanAnchor]);
+  }, [q, scanning]);
 
   const counts = useMemo(() => {
     const byVlan = new Map<number, number>();
@@ -267,8 +266,9 @@ export default function Hosts() {
         </button>
       </div>
 
-      {/* Mobile-only: badge on its own row, inheriting parent's space-y gap */}
-      <div className="sm:hidden">
+      {/* Mobile-only: badges on their own row, wrapping cleanly with a gap
+          so "Last scan …" doesn't sit flush against "Next in …". */}
+      <div className="flex flex-wrap items-center gap-2 sm:hidden">
         <NextScanBadge anchor={nextScanAnchor} scanning={scanning} />
         <LastScanBadge scan={lastScan} scanning={scanning} />
       </div>
@@ -365,6 +365,14 @@ export default function Hosts() {
                     {vlanLabel(h.vlanId)}
                   </span>
                 )}
+                <span className="inline-flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400">
+                  <NotifyDot on={h.notifyOffline} title={h.notifyOffline ? 'Offline alerts on' : 'Offline alerts off'} />
+                  off
+                </span>
+                <span className="inline-flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400">
+                  <NotifyDot on={h.notifyOnline} title={h.notifyOnline ? 'Online alerts on' : 'Online alerts off'} />
+                  on
+                </span>
               </div>
             </li>
           ))}
@@ -380,6 +388,8 @@ export default function Hosts() {
               <col className="hidden w-40 md:table-column" />
               <col className="hidden w-56 lg:table-column" />
               <col className="w-24" />
+              <col className="w-12" />
+              <col className="w-12" />
               <col className="w-16" />
             </colgroup>
             <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-400">
@@ -390,6 +400,8 @@ export default function Hosts() {
                 <SortableTh label="MAC" sortKey="mac" sort={sort} onClick={clickSort} className="hidden md:table-cell" />
                 <SortableTh label="Vendor" sortKey="vendor" sort={sort} onClick={clickSort} className="hidden lg:table-cell" />
                 <SortableTh label="Status" sortKey="status" sort={sort} onClick={clickSort} />
+                <th className="px-2 py-2.5 text-center" title="Notify when this host goes offline">Off</th>
+                <th className="px-2 py-2.5 text-center" title="Notify when this host comes back online">On</th>
                 <th className="px-3 py-2.5"></th>
               </tr>
             </thead>
@@ -433,6 +445,12 @@ export default function Hosts() {
                       <span className={clsx('h-1.5 w-1.5 rounded-full', h.online ? 'bg-emerald-500' : 'bg-slate-400')} />
                       {h.online ? 'Online' : 'Offline'}
                     </span>
+                  </td>
+                  <td className="px-2 text-center">
+                    <NotifyDot on={h.notifyOffline} title={h.notifyOffline ? 'Offline alerts on' : 'Offline alerts off'} />
+                  </td>
+                  <td className="px-2 text-center">
+                    <NotifyDot on={h.notifyOnline} title={h.notifyOnline ? 'Online alerts on' : 'Online alerts off'} />
                   </td>
                   <td className="px-3">
                     <div className="flex justify-end">
@@ -659,6 +677,25 @@ function SortIndicator({ dir }: { dir: 'asc' | 'desc' | null }) {
     <svg className="h-3 w-3" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
       {dir === 'asc' ? <path d="M3 7l3-4 3 4z" /> : <path d="M3 5l3 4 3-4z" />}
     </svg>
+  );
+}
+
+// NotifyDot is a tiny coloured circle used in the host grid to show
+// per-host notification opt-in at a glance: brand-orange when on,
+// muted slate when off. Pure decoration — clicking it does nothing
+// (per-host editing lives in the host detail page).
+function NotifyDot({ on, title }: { on: boolean; title: string }) {
+  return (
+    <span
+      title={title}
+      aria-label={title}
+      className={clsx(
+        'inline-block h-2 w-2 rounded-full',
+        on
+          ? 'bg-brand-500 ring-1 ring-brand-500/30'
+          : 'bg-slate-300 ring-1 ring-slate-300/30 dark:bg-slate-600 dark:ring-slate-600/30',
+      )}
+    />
   );
 }
 
