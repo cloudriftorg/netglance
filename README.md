@@ -10,6 +10,12 @@
 > between minor versions, and don't deploy on a production firewall
 > you can't recover from a snapshot. Bug reports very welcome.
 
+> 🧪 **Vibe-coded.** Netglance was built largely through vibe coding
+> with an LLM in the loop — designed and shipped quickly, not yet
+> code-reviewed by humans line by line. Treat the codebase
+> accordingly: read before you trust, especially anything that runs
+> on a firewall.
+
 **Discover, inventory and watch every device on your LAN.** Netglance scans
 configured CIDRs over ARP, keeps a SQLite history of when each MAC was
 first/last seen and on which IP, and ships a mobile-friendly web UI on
@@ -17,9 +23,13 @@ its own port. Per-VLAN aware, lightweight (single Go binary, ~30 MB), and
 designed to run on the firewall itself — most users install it as an
 **OPNsense plugin** that adds a `Services → Netglance` tab.
 
-> ![screenshot placeholder — host list](docs/img/screenshot-hosts.png)
->
-> *(Screenshots coming with v0.1.0)*
+| Hosts page | Settings page |
+|---|---|
+| ![Hosts page](docs/img/host_screen.png) | ![Settings page](docs/img/settings.png) |
+
+| OPNsense plugin |
+|---|
+| ![Services > Netglance](docs/img/opnsense_plugin.png) |
 
 ## Features
 
