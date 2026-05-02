@@ -12,12 +12,10 @@ import (
 // Listed by the same JSON keys used in the /api/settings bundle so the
 // frontend can directly mark them read-only.
 var ManagedFields = []string{
-	"bindAddress",
 	"httpPort",
 	"scanIfaces",
 	"scanEverySeconds",
 	"scanEnabled",
-	"networks",
 }
 
 type Config struct {

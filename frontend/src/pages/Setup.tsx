@@ -5,9 +5,26 @@ import IfacePicker from '../components/IfacePicker';
 
 export default function Setup({ onDone }: { onDone: () => void }) {
   const [step, setStep] = useState<'password' | 'interfaces'>('password');
+  const [managed, setManaged] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    api.managed()
+      .then((m) => setManaged(m.managed))
+      .catch(() => setManaged(false));
+  }, []);
+
+  // When OPNsense (or another orchestrator) supplies scanIfaces via env,
+  // the picker step has nothing meaningful to ask — finish after password.
+  function afterPassword() {
+    if (managed) {
+      onDone();
+    } else {
+      setStep('interfaces');
+    }
+  }
 
   return step === 'password' ? (
-    <PasswordStep onNext={() => setStep('interfaces')} />
+    <PasswordStep onNext={afterPassword} />
   ) : (
     <InterfacesStep onDone={onDone} />
   );

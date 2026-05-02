@@ -5,12 +5,6 @@
         <type>checkbox</type>
     </field>
     <field>
-        <id>general.bindAddress</id>
-        <label>Listen address</label>
-        <type>text</type>
-        <help>IP the daemon listens on. Use 0.0.0.0 to listen on all interfaces.</help>
-    </field>
-    <field>
         <id>general.httpPort</id>
         <label>Listen port</label>
         <type>text</type>
@@ -28,12 +22,5 @@
         <label>Scan interval (seconds)</label>
         <type>text</type>
         <help>How often the daemon scans the configured networks. Min 30s.</help>
-    </field>
-    <field>
-        <id>general.networks</id>
-        <label>Networks to inventory</label>
-        <type>textbox</type>
-        <style>code</style>
-        <help>One entry per line: &lt;code&gt;cidr[:vlan[:name]]&lt;/code&gt;. VLAN ID is informational (drives the badge in the netglance UI). Name is optional. Example: &lt;code&gt;192.168.1.0/24:0:LAN&lt;/code&gt;</help>
     </field>
 </form>
