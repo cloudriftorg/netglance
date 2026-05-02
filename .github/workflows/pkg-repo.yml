@@ -67,13 +67,13 @@ jobs:
           copyback: true
           prepare: |
             # Minimal install: arp-scan we re-bundle for the repo, plus
-            # git/bash for the opnsense/plugins framework. No go (we
-            # cross-compiled on the runner), no jq (we generate the
-            # files-list with sh), no gmake (plugins.mk needs bmake).
-            # Skipping `pkg upgrade -y` saves ~10 minutes — the only
-            # reason we needed it before was a pcre2 mismatch triggered
-            # by installing jq, which we no longer install.
-            pkg install -y git bash arp-scan
+            # bash for opnsense/plugins/Mk scripts. No go (cross-
+            # compiled on the runner), no jq (replaced with awk), no
+            # gmake (plugins.mk uses bmake), no git (we fetch the
+            # opnsense/plugins tarball with the preinstalled `fetch`).
+            # Skipping `pkg upgrade -y` saves ~10 minutes; dropping git
+            # avoids the pcre2 mismatch that upgrade was working around.
+            pkg install -y bash arp-scan
           run: |
             set -eu
             VERSION="${GITHUB_REF_NAME#v}"
@@ -171,7 +171,13 @@ jobs:
             # plugins.mk make-package flow instead — same one official
             # plugins (ntopng, wireguard, ...) go through, so the output
             # has every annotation the firmware expects.
-            git clone --depth 1 https://github.com/opnsense/plugins /tmp/opnsense-plugins
+            # Fetch the opnsense/plugins framework as a tarball — avoids
+            # needing git inside the VM (its pcre2 dep clashes with the
+            # base image's older libpcre2). `fetch` is preinstalled.
+            mkdir -p /tmp/opnsense-plugins
+            fetch -qo /tmp/plugins.tar.gz \
+              https://codeload.github.com/opnsense/plugins/tar.gz/refs/heads/master
+            tar -xzf /tmp/plugins.tar.gz -C /tmp/opnsense-plugins --strip-components=1
             mkdir -p /tmp/opnsense-plugins/net/netglance
             cp -R deploy/opnsense-plugin/. /tmp/opnsense-plugins/net/netglance/
             # Inject the rc tag's version (the committed Makefile holds
