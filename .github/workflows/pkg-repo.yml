@@ -188,7 +188,11 @@ jobs:
             cd /tmp/opnsense-plugins/net/netglance
             # plugins.mk uses BSD-make .include syntax — invoke the
             # platform's bmake (just `make` on FreeBSD), not gmake.
-            make package
+            # _PLUGIN_DEVEL='' suppresses the upstream `devel.mk` which
+            # would otherwise tack `-devel` onto every pkg name (the
+            # plugins repo's master branch is treated as the dev branch
+            # by default; release pkgs need to opt out explicitly).
+            make _PLUGIN_DEVEL='' package
             cp work/pkg/*.pkg /tmp/pkgs/ 2>/dev/null || cp work/pkg/*.txz /tmp/pkgs/
             cd $GITHUB_WORKSPACE
 
