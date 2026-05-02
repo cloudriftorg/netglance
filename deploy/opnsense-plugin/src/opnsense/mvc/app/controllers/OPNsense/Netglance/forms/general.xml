@@ -30,30 +30,10 @@
         <help>How often the daemon scans the configured networks. Min 30s.</help>
     </field>
     <field>
-        <type>header</type>
-        <label>Networks</label>
-    </field>
-    <field>
         <id>general.networks</id>
-        <type>grid</type>
         <label>Networks to inventory</label>
-        <help>One row per CIDR. VLAN ID is informational (drives the badge in the netglance UI). Name is optional.</help>
-        <columns>
-            <column>
-                <type>text</type>
-                <label>CIDR</label>
-                <name>cidr</name>
-            </column>
-            <column>
-                <type>text</type>
-                <label>VLAN</label>
-                <name>vlanId</name>
-            </column>
-            <column>
-                <type>text</type>
-                <label>Name</label>
-                <name>name</name>
-            </column>
-        </columns>
+        <type>textbox</type>
+        <style>code</style>
+        <help>One entry per line: &lt;code&gt;cidr[:vlan[:name]]&lt;/code&gt;. VLAN ID is informational (drives the badge in the netglance UI). Name is optional. Example: &lt;code&gt;192.168.1.0/24:0:LAN&lt;/code&gt;</help>
     </field>
 </form>

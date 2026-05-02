@@ -29,22 +29,10 @@
             <MaximumValue>86400</MaximumValue>
             <ValidationMessage>Interval must be between 30 and 86400 seconds</ValidationMessage>
         </scanInterval>
-        <networks type="ArrayField">
-            <cidr type="NetworkField">
-                <Required>Y</Required>
-                <NetMaskRequired>Y</NetMaskRequired>
-                <AddressFamilies>ipv4</AddressFamilies>
-            </cidr>
-            <vlanId type="IntegerField">
-                <Default>0</Default>
-                <MinimumValue>0</MinimumValue>
-                <MaximumValue>4094</MaximumValue>
-            </vlanId>
-            <name type="TextField">
-                <Required>N</Required>
-                <Mask>/^[a-zA-Z0-9_\- ]{0,32}$/u</Mask>
-                <ValidationMessage>Name may contain letters, digits, dashes, underscores and spaces (max 32 chars)</ValidationMessage>
-            </name>
+        <networks type="TextField">
+            <Required>N</Required>
+            <Mask>/^(\s*([0-9]{1,3}\.){3}[0-9]{1,3}\/[0-9]{1,2}(:[0-9]{0,4})?(:[a-zA-Z0-9_\- ]{0,32})?\s*\r?\n?)*$/u</Mask>
+            <ValidationMessage>One entry per line: cidr[:vlan[:name]] (e.g. 192.168.1.0/24:0:LAN)</ValidationMessage>
         </networks>
     </items>
 </model>
