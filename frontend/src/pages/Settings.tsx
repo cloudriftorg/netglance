@@ -465,8 +465,7 @@ function ManagedBadge() {
         aria-label="Managed by OPNsense — details"
       >
         <Info className="h-3 w-3" />
-        <span className="hidden sm:inline">Managed by OPNsense</span>
-        <span className="sm:hidden">OPNsense</span>
+        OPNsense
       </button>
       {open && (
         <div className="absolute left-0 top-full z-20 mt-2 w-72 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 shadow-lg dark:border-amber-600 dark:bg-amber-950 dark:text-amber-100">
