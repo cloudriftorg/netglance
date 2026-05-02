@@ -1,7 +1,7 @@
 # Netglance
 
 [![Build & Publish](https://github.com/netglance/netglance/actions/workflows/build.yml/badge.svg)](https://github.com/netglance/netglance/actions/workflows/build.yml)
-[![Latest release](https://img.shields.io/github/v/release/netglance/netglance?include_prereleases&sort=semver)](https://github.com/netglance/netglance/releases)
+[![Latest release](https://img.shields.io/github/v/release/netglance/netglance?sort=semver)](https://github.com/netglance/netglance/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 > ⚠️ **Early development.** Netglance is under active development —
