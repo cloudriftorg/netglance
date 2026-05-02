@@ -217,9 +217,12 @@ export default function SettingsPage() {
             <Field label="From">
               <input
                 className="input"
+                type="email"
+                placeholder="netglance@example.com"
                 value={s.smtp?.from ?? ''}
                 onChange={(e) => update('smtp', { ...(s.smtp ?? blankSMTP()), from: e.target.value })}
               />
+              <p className="mt-1 text-xs text-slate-500">Must be a full email address (user@domain), not just a domain.</p>
             </Field>
             <Field label="Recipients (comma-separated)">
               <input

@@ -693,6 +693,8 @@ function TrashIcon() {
 }
 
 function BroomIcon({ className }: { className?: string }) {
+  // Simple, readable at 16px: angled handle, perpendicular collar, and
+  // a triangular bristle skirt with three vertical bristles inside.
   return (
     <svg
       className={className}
@@ -704,10 +706,15 @@ function BroomIcon({ className }: { className?: string }) {
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <path d="M19.4 4.6 14 10" />
-      <path d="m13 11 1.5 1.5" />
-      <path d="M11 13c-2 1-3.5 3-4 6l-2 2 4 1c2-.5 4-2 5-4l1-3" />
-      <path d="m15.5 12.5 4 4" />
+      {/* Handle */}
+      <path d="M19 4 L12 11" />
+      {/* Collar (band where bristles attach) */}
+      <path d="M10 9 L15 14" />
+      {/* Bristle skirt outline */}
+      <path d="M9 11 L5 21 L18 21 L17 13 Z" />
+      {/* Internal bristle hints */}
+      <path d="M9 16 L9 21" />
+      <path d="M13 16 L13 21" />
     </svg>
   );
 }
