@@ -54,11 +54,24 @@ export default function Hosts() {
   }
 
   // Networks come from settings — used to render VLAN cells/chips by name
-  // instead of the bare numeric id. Loaded once.
+  // instead of the bare numeric id. Refresh on tab focus so renaming a
+  // network in Settings reflects on Hosts without manual reload, and pull
+  // again every 30s as a backstop for long-lived sessions.
   useEffect(() => {
-    api.getSettings()
-      .then((s) => setNetworks(s.networks ?? []))
-      .catch(() => {});
+    const refresh = () =>
+      api.getSettings()
+        .then((s) => setNetworks(s.networks ?? []))
+        .catch(() => {});
+    refresh();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    const id = setInterval(refresh, 30_000);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      clearInterval(id);
+    };
   }, []);
 
   const vlanLabel = useMemo(() => {

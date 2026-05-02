@@ -130,6 +130,7 @@ export default function SettingsPage() {
           )}
           {s.networks.map((n, i) => (
             <div key={i} className="grid grid-cols-12 gap-2">
+              {/* JSX order matches visual + tab order: Name → CIDR → VLAN → ×. */}
               <input
                 className="input col-span-11 sm:col-span-4"
                 placeholder="Name (e.g. trusted)"
@@ -137,23 +138,15 @@ export default function SettingsPage() {
                 disabled={isManaged('networks')}
                 onChange={(e) => updateNet(i, { name: e.target.value })}
               />
-              <button
-                className="col-span-1 text-sm text-red-600 disabled:opacity-40 sm:order-last"
-                disabled={isManaged('networks')}
-                onClick={() => update('networks', s.networks.filter((_, j) => j !== i))}
-                aria-label="Remove"
-              >
-                ×
-              </button>
               <input
-                className="input col-span-8 sm:col-span-5"
+                className="input col-span-8 col-start-1 row-start-2 sm:col-span-5 sm:col-start-auto sm:row-start-auto"
                 placeholder="192.168.1.0/24"
                 value={n.cidr}
                 disabled={isManaged('networks')}
                 onChange={(e) => updateNet(i, { cidr: e.target.value })}
               />
               <input
-                className="input col-span-4 sm:col-span-2"
+                className="input col-span-4 row-start-2 sm:col-span-2 sm:row-start-auto"
                 inputMode="numeric"
                 placeholder="VLAN"
                 value={n.vlanId ?? ''}
@@ -164,6 +157,14 @@ export default function SettingsPage() {
                   })
                 }
               />
+              <button
+                className="col-span-1 col-start-12 row-start-1 text-sm text-red-600 disabled:opacity-40 sm:row-start-auto"
+                disabled={isManaged('networks')}
+                onClick={() => update('networks', s.networks.filter((_, j) => j !== i))}
+                aria-label="Remove"
+              >
+                ×
+              </button>
             </div>
           ))}
           <button
