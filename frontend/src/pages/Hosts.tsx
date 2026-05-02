@@ -388,8 +388,8 @@ export default function Hosts() {
               <col className="hidden w-40 md:table-column" />
               <col className="hidden w-56 lg:table-column" />
               <col className="w-24" />
-              <col className="w-12" />
-              <col className="w-12" />
+              <col className="w-28" />
+              <col className="w-28" />
               <col className="w-16" />
             </colgroup>
             <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-400">
@@ -400,8 +400,8 @@ export default function Hosts() {
                 <SortableTh label="MAC" sortKey="mac" sort={sort} onClick={clickSort} className="hidden md:table-cell" />
                 <SortableTh label="Vendor" sortKey="vendor" sort={sort} onClick={clickSort} className="hidden lg:table-cell" />
                 <SortableTh label="Status" sortKey="status" sort={sort} onClick={clickSort} />
-                <th className="px-2 py-2.5 text-center" title="Notify when this host goes offline">Off</th>
-                <th className="px-2 py-2.5 text-center" title="Notify when this host comes back online">On</th>
+                <th className="px-2 py-2.5 text-center" title="Notify when this host goes offline">Alert offline</th>
+                <th className="px-2 py-2.5 text-center" title="Notify when this host comes back online">Alert online</th>
                 <th className="px-3 py-2.5"></th>
               </tr>
             </thead>

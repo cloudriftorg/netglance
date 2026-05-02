@@ -327,7 +327,9 @@ func vlanLabel(h *store.Host) string {
 		return h.NetworkName
 	}
 	if h.VLANID != nil {
-		return fmt.Sprintf("VLAN %d", *h.VLANID)
+		// Bare number when no name is configured — matches what the
+		// host list shows in the badge.
+		return fmt.Sprintf("%d", *h.VLANID)
 	}
 	return "—"
 }

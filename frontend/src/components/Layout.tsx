@@ -11,7 +11,14 @@ interface Props {
 export default function Layout({ children, onLogout }: Props) {
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <header className="z-10 shrink-0 border-b border-slate-200 bg-white/80 backdrop-blur dark:border-slate-800 dark:bg-slate-900/80">
+      <header
+        className="z-10 shrink-0 border-b border-slate-200 bg-white/80 backdrop-blur dark:border-slate-800 dark:bg-slate-900/80"
+        // Respect the iOS status bar / notch when installed as a PWA on
+        // the home screen. viewport-fit=cover (set in index.html) extends
+        // the page under the notch; without this padding the title and
+        // tabs slid under the carrier/battery indicators.
+        style={{ paddingTop: 'env(safe-area-inset-top)' }}
+      >
         <div className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <h1 className="text-lg font-semibold tracking-tight sm:flex-1">Netglance</h1>
           <nav className="order-3 flex w-full items-center justify-center gap-1 text-sm sm:order-none sm:w-auto">

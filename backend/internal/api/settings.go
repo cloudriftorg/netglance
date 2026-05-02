@@ -78,6 +78,11 @@ func putSettingsHandler(st *store.Store, managed bool) http.HandlerFunc {
 			rules = append(rules, store.NetworkRule{CIDR: n.CIDR, VLANID: n.VLANID, Name: n.Name})
 		}
 		_ = st.RetagHosts(rules)
+		// Kick a fresh scan so the user sees the effect of network /
+		// interval / iface changes immediately instead of waiting up to
+		// one full interval for the auto loop to tick. No-op if a scan
+		// is already running.
+		_ = kickScan(st)
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 	}
 }

@@ -11,58 +11,68 @@ import (
 
 func runScanHandler(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !scanner.TryAcquire() {
+		if !kickScan(st) {
 			writeJSON(w, http.StatusAccepted, map[string]any{"status": "already-running"})
 			return
 		}
-		s := loadSettings(st)
-		nets := make([]scanner.Network, 0, len(s.Networks))
-		for _, n := range s.Networks {
-			vid := n.VLANID
-			var v *int
-			if vid != 0 {
-				v = &vid
-			}
-			nets = append(nets, scanner.Network{Name: n.Name, CIDR: n.CIDR, VLANID: v})
-		}
-		// Mirror the auto-scan loop (cmd/server/main.go loadScannerSettings):
-		// build the same NotifyConfig from the persisted smtp + notify
-		// settings so a manual 'Scan now' fires the same emails an
-		// automatic tick would. Without this, manual scans were silent
-		// even with everything enabled.
-		var notifyCfg *scanner.NotifyConfig
-		if s.SMTP != nil && s.SMTP.Host != "" && len(s.SMTP.Recipients) > 0 {
-			notifyCfg = &scanner.NotifyConfig{
-				SMTP: scanner.SMTPConfig{
-					Host:       s.SMTP.Host,
-					Port:       s.SMTP.Port,
-					UseTLS:     s.SMTP.UseTLS,
-					UseAuth:    s.SMTP.UseAuth,
-					Username:   s.SMTP.Username,
-					Password:   s.SMTP.Password,
-					From:       s.SMTP.From,
-					Recipients: s.SMTP.Recipients,
-				},
-				OnNewHost:    s.Notify.NewHost,
-				OnOffline:    s.Notify.Offline,
-				OnBackOnline: s.Notify.BackOnline,
-			}
-		}
-		go func() {
-			defer scanner.Release()
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-			defer cancel()
-			_, _ = scanner.RunOnce(ctx, st, scanner.Settings{
-				Networks:         nets,
-				ScanIfaces:       s.ScanIfaces,
-				ScanEnabled:      true,
-				ScanEverySeconds: s.ScanEverySeconds,
-				OfflineAfter:     s.OfflineAfter,
-				Notify:           notifyCfg,
-			})
-		}()
 		writeJSON(w, http.StatusAccepted, map[string]any{"status": "started"})
 	}
+}
+
+// kickScan starts a one-off scan in the background using the persisted
+// settings (same wiring as the auto-scan loop and the manual "Scan now"
+// button). Returns false if a scan is already in flight, in which case
+// the caller should not assume a new scan was queued.
+//
+// Used by /api/scan/run, and by handlers that mutate config (settings
+// save, reset) so users see fresh data immediately rather than waiting
+// up to one full interval for the auto loop to tick.
+func kickScan(st *store.Store) bool {
+	if !scanner.TryAcquire() {
+		return false
+	}
+	s := loadSettings(st)
+	nets := make([]scanner.Network, 0, len(s.Networks))
+	for _, n := range s.Networks {
+		vid := n.VLANID
+		var v *int
+		if vid != 0 {
+			v = &vid
+		}
+		nets = append(nets, scanner.Network{Name: n.Name, CIDR: n.CIDR, VLANID: v})
+	}
+	var notifyCfg *scanner.NotifyConfig
+	if s.SMTP != nil && s.SMTP.Host != "" && len(s.SMTP.Recipients) > 0 {
+		notifyCfg = &scanner.NotifyConfig{
+			SMTP: scanner.SMTPConfig{
+				Host:       s.SMTP.Host,
+				Port:       s.SMTP.Port,
+				UseTLS:     s.SMTP.UseTLS,
+				UseAuth:    s.SMTP.UseAuth,
+				Username:   s.SMTP.Username,
+				Password:   s.SMTP.Password,
+				From:       s.SMTP.From,
+				Recipients: s.SMTP.Recipients,
+			},
+			OnNewHost:    s.Notify.NewHost,
+			OnOffline:    s.Notify.Offline,
+			OnBackOnline: s.Notify.BackOnline,
+		}
+	}
+	go func() {
+		defer scanner.Release()
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		_, _ = scanner.RunOnce(ctx, st, scanner.Settings{
+			Networks:         nets,
+			ScanIfaces:       s.ScanIfaces,
+			ScanEnabled:      true,
+			ScanEverySeconds: s.ScanEverySeconds,
+			OfflineAfter:     s.OfflineAfter,
+			Notify:           notifyCfg,
+		})
+	}()
+	return true
 }
 
 func scanStatusHandler(st *store.Store) http.HandlerFunc {
@@ -89,7 +99,14 @@ func scanStatusHandler(st *store.Store) http.HandlerFunc {
 			if last != nil && last.EndedAt > 0 {
 				base = last.EndedAt
 			} else {
-				base = time.Now().Unix() - int64(interval)
+				// Fresh DB / post-reset: there's no anchor for "when did the
+				// last scan end". The scanner loop wakes up at most every
+				// `interval` seconds, so the next scan can be up to a full
+				// interval away — that's the only honest countdown we can
+				// give without coordinating with the loop. Showing 0 here
+				// makes the badge flash "starting…" indefinitely until the
+				// loop ticks, which looks broken.
+				base = time.Now().Unix()
 			}
 			remaining := base + int64(interval) - time.Now().Unix()
 			if remaining < 0 {
