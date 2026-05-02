@@ -5,6 +5,10 @@
 @layer base {
   html, body, #root { height: 100%; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+  /* Neutralize the slate-900 blue cast in dark mode so panel chrome lines
+     up with OPNsense's near-black firewall theme. Surface elements still
+     use Tailwind slate-* utilities; this only shifts the page backdrop. */
+  html.dark body { background-color: #1d1d1d; }
 }
 
 @layer components {
