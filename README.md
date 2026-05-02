@@ -53,13 +53,16 @@ designed to run on the firewall itself — most users install it as an
 | FreeBSD native | [docs/install/freebsd-native.md](docs/install/freebsd-native.md) |
 | Docker | [docs/install/docker.md](docs/install/docker.md) |
 
-### OPNsense in 3 commands
+### OPNsense in 4 commands
 
 ```sh
 ssh root@<opnsense>
+fetch -o /usr/local/etc/pkg/keys/netglance.pub  https://netglance.github.io/netglance/netglance.pub
 fetch -o /usr/local/etc/pkg/repos/netglance.conf https://netglance.github.io/netglance/netglance.conf
 pkg update && pkg install -y os-netglance
 ```
+
+> Verify the pubkey before trusting it — see [Package signing key](#package-signing-key) below.
 
 Then go to **Services → Netglance** in your OPNsense GUI, enable the plugin,
 pick interfaces, save. Done. The web UI opens on port 8473.
@@ -105,6 +108,26 @@ password) lives inside netglance and is configured from the web UI.
 
 In the other install modes, **everything** lives inside netglance and is
 configured from a first-run wizard.
+
+## Package signing key
+
+The FreeBSD pkg repo published at `https://netglance.github.io/netglance/`
+is signed with an RSA-4096 keypair generated for v1.0.0. Verify the
+public key fingerprint after fetching it, in case GitHub Pages itself
+were ever compromised:
+
+```
+SHA256 (DER): 479df3c427e8fd354e5a88839d80fdbc102cfea882dbbca9bfd69f2e2583bfa4
+```
+
+Compute locally to compare:
+
+```sh
+openssl rsa -in /usr/local/etc/pkg/keys/netglance.pub -pubin -outform DER \
+  | sha256sum
+```
+
+If the two strings don't match, **do not** run `pkg install` — open an issue.
 
 ## Reverse proxy
 

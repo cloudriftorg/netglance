@@ -207,13 +207,21 @@ jobs:
             # closure without sending the user to a second pkg source.
             pkg create -o /tmp/repo/FreeBSD:14:amd64/All -n arp-scan
 
+            SIGNED=0
             if [ -n "${PKG_SIGN_KEY:-}" ]; then
               echo "$PKG_SIGN_KEY" > /tmp/repo.key
               chmod 600 /tmp/repo.key
               pkg repo /tmp/repo/FreeBSD:14:amd64 /tmp/repo.key
-              # Publish the public key alongside the metadata
+              # Publish the public key under both names: repo.pub for
+              # the canonical location pkg(8) docs reference, and
+              # netglance.pub for the README's `fetch` snippet.
               openssl rsa -in /tmp/repo.key -pubout > /tmp/repo/repo.pub 2>/dev/null
+              cp /tmp/repo/repo.pub /tmp/repo/netglance.pub
               rm -f /tmp/repo.key
+              SIGNED=1
+              echo "Published signed repo. Pubkey fingerprint:"
+              openssl rsa -in /tmp/repo/netglance.pub -pubin -outform DER 2>/dev/null \
+                | sha256sum
             else
               echo "WARNING: PKG_SIGN_KEY secret is not set — building unsigned repo."
               pkg repo /tmp/repo/FreeBSD:14:amd64
@@ -223,14 +231,28 @@ jobs:
             # users can `fetch -o /usr/local/etc/pkg/repos/netglance.conf
             # https://netglance.github.io/netglance/netglance.conf`
             # instead of crafting the file locally — friendlier than a
-            # heredoc that breaks under csh.
-            cat > /tmp/repo/netglance.conf <<CONF
+            # heredoc that breaks under csh. The signature_type stanza
+            # is rewritten to match what the workflow actually produced
+            # (was hardcoded "none" before, which silently gave every
+            # user an unsigned-repo client even when we did sign).
+            if [ "$SIGNED" = "1" ]; then
+              cat > /tmp/repo/netglance.conf <<CONF
+            netglance: {
+              url: "https://netglance.github.io/netglance/\${ABI}",
+              signature_type: "pubkey",
+              pubkey: "/usr/local/etc/pkg/keys/netglance.pub",
+              enabled: yes
+            }
+            CONF
+            else
+              cat > /tmp/repo/netglance.conf <<CONF
             netglance: {
               url: "https://netglance.github.io/netglance/\${ABI}",
               signature_type: "none",
               enabled: yes
             }
             CONF
+            fi
 
             # Copy the built repo into the workspace so the host job can
             # pick it up after the VM exits (vmactions copyback transfers
