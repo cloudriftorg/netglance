@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { api, Settings as SettingsT, NetworkConfig, NetInterface, ManagedInfo } from '../lib/api';
 import { errMessage, useToast } from '../components/Toast';
 import IfacePicker from '../components/IfacePicker';
+import { Trash2 } from 'lucide-react';
 
 export default function SettingsPage() {
   const toast = useToast();
@@ -12,7 +13,25 @@ export default function SettingsPage() {
   const [managed, setManaged] = useState<ManagedInfo>({ managed: false, fields: [] });
 
   useEffect(() => {
-    api.getSettings().then(setS).catch((e) => toast.error(errMessage(e, 'Load failed')));
+    api.getSettings()
+      .then(setS)
+      .catch((e) => {
+        // In DEV bypass mode there's no backend — render an empty form
+        // instead of getting stuck on "Loading…" forever so the layout
+        // can still be previewed.
+        if (import.meta.env.DEV && localStorage.getItem('netglance.dev.skipAuth') === '1') {
+          setS({
+            networks: [],
+            scanEnabled: true,
+            scanEverySeconds: 120,
+            scanIfaces: [],
+            offlineAfter: 1,
+            notify: { newHost: false, offline: false, backOnline: false },
+          });
+          return;
+        }
+        toast.error(errMessage(e, 'Load failed'));
+      });
     api.listInterfaces().then(setIfaces).catch(() => {
       /* non-fatal: combo just shows the saved value */
     });
@@ -179,12 +198,13 @@ export default function SettingsPage() {
                 onChange={(e) => updateNet(i, { name: e.target.value })}
               />
               <button
-                className="col-span-1 col-start-12 row-start-1 text-sm text-red-600 disabled:opacity-40 sm:row-start-auto"
+                className="col-span-1 col-start-12 row-start-1 inline-flex h-9 w-9 items-center justify-center justify-self-center rounded-full text-slate-400 transition hover:bg-red-100 hover:text-red-600 disabled:opacity-40 dark:hover:bg-red-500/20 dark:hover:text-red-300 sm:row-start-auto"
                 disabled={isManaged('networks')}
                 onClick={() => update('networks', s.networks.filter((_, j) => j !== i))}
-                aria-label="Remove"
+                aria-label="Remove network"
+                title="Remove network"
               >
-                ×
+                <Trash2 className="h-4 w-4" />
               </button>
             </div>
           ))}

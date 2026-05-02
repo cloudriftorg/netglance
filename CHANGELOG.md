@@ -97,4 +97,4 @@ First public release.
   Settings is schema-only
 - No password reset flow — recovering requires DB reset
 
-[0.1.0]: https://github.com/massimoschiavop/netglance/releases/tag/v0.1.0
+[0.1.0]: https://github.com/netglance/netglance/releases/tag/v0.1.0

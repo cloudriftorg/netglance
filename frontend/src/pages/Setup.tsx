@@ -1,16 +1,32 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { api, NetInterface } from '../lib/api';
+import { api, isBackendDown, NetInterface } from '../lib/api';
 import { errMessage, useToast } from '../components/Toast';
 import IfacePicker from '../components/IfacePicker';
 
 export default function Setup({ onDone }: { onDone: () => void }) {
   const [step, setStep] = useState<'password' | 'interfaces'>('password');
   const [managed, setManaged] = useState<boolean | null>(null);
+  // True only when the backend can't be reached at all (network error,
+  // not 4xx). Gates the dev skip button below — we never want to surface
+  // it when the backend is responding, even in dev.
+  const [backendDown, setBackendDown] = useState(false);
 
   useEffect(() => {
     api.managed()
-      .then((m) => setManaged(m.managed))
-      .catch(() => setManaged(false));
+      .then((m) => {
+        setManaged(m.managed);
+        setBackendDown(false);
+      })
+      .catch(() => {
+        setManaged(false);
+        // In DEV, separately probe /healthz to tell apart "backend is
+        // down" (proxy 502/504 or fetch TypeError) from "backend is up
+        // but rejecting the request" — only the former should surface
+        // the dev skip button.
+        if (import.meta.env.DEV) {
+          isBackendDown().then(setBackendDown);
+        }
+      });
   }, []);
 
   // When OPNsense (or another orchestrator) supplies scanIfaces via env,
@@ -23,10 +39,37 @@ export default function Setup({ onDone }: { onDone: () => void }) {
     }
   }
 
-  return step === 'password' ? (
-    <PasswordStep onNext={afterPassword} totalSteps={managed ? 1 : 2} />
-  ) : (
-    <InterfacesStep onDone={onDone} />
+  return (
+    <>
+      {step === 'password' ? (
+        <PasswordStep onNext={afterPassword} totalSteps={managed ? 1 : 2} />
+      ) : (
+        <InterfacesStep onDone={onDone} />
+      )}
+      {/* Dev-only escape hatch — three layers of guard:
+          - import.meta.env.DEV strips this entire branch from the
+            production bundle (Vite tree-shakes the whole conditional).
+          - backendDown only flips true when the /api/system/managed call
+            fails with a TypeError (network-level, i.e. backend
+            unreachable). HTTP 4xx/5xx don't qualify.
+          - App.tsx re-checks the same conditions before honoring the
+            localStorage flag, so a stale flag can never let someone in
+            once the backend is back up. */}
+      {import.meta.env.DEV && backendDown && (
+        <div className="fixed bottom-4 right-4 z-50">
+          <button
+            onClick={() => {
+              localStorage.setItem('netglance.dev.skipAuth', '1');
+              window.location.href = '/';
+            }}
+            className="rounded-md bg-amber-500/90 px-3 py-1.5 text-xs font-medium text-white shadow-lg hover:bg-amber-600"
+            title="Backend unreachable — preview the UI shell without it"
+          >
+            Skip wizard (dev, backend down)
+          </button>
+        </div>
+      )}
+    </>
   );
 }
 

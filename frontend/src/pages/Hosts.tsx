@@ -4,7 +4,7 @@ import clsx from 'clsx';
 import { api, Host, NetworkConfig, Scan } from '../lib/api';
 import { errMessage, useToast } from '../components/Toast';
 import { useConfirm } from '../components/Confirm';
-import Spinner from '../components/Spinner';
+import { Clock, Paintbrush, RefreshCw, Trash2 } from 'lucide-react';
 
 export default function Hosts() {
   const navigate = useNavigate();
@@ -56,6 +56,19 @@ export default function Hosts() {
       setHosts(data ?? []);
       if (settings) setNetworks(settings.networks ?? []);
     } catch (err) {
+      // DEV escape hatch: when the backend is unreachable and the
+      // dev-skip flag is set, seed the page with synthetic data so the
+      // table layout, badges, filters, and chips can be previewed
+      // without spinning up the Go server. Production builds skip this
+      // branch entirely (import.meta.env.DEV is constant-folded false).
+      if (
+        import.meta.env.DEV &&
+        localStorage.getItem('netglance.dev.skipAuth') === '1'
+      ) {
+        setHosts(DEV_DUMMY_HOSTS);
+        setNetworks(DEV_DUMMY_NETWORKS);
+        return;
+      }
       toast.error(errMessage(err, 'Load failed'));
     }
   }
@@ -240,7 +253,7 @@ export default function Hosts() {
           title={scanning ? 'Scan in progress' : 'Scan now'}
           className="btn-primary inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full p-0 sm:h-10 sm:w-10"
         >
-          {scanning ? <Spinner className="h-4 w-4" /> : <RefreshIcon className="h-4 w-4" />}
+          <RefreshCw className={clsx('h-4 w-4', scanning && 'animate-spin')} />
         </button>
         <button
           onClick={clearHosts}
@@ -249,7 +262,7 @@ export default function Hosts() {
           title="Clear host list"
           className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-600 p-0 text-white shadow-sm transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50 sm:h-10 sm:w-10"
         >
-          <BroomIcon className="h-4 w-4" />
+          <Paintbrush className="h-4 w-4" />
         </button>
       </div>
 
@@ -331,7 +344,7 @@ export default function Hosts() {
                   aria-label="Delete host"
                   className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-500/20 dark:hover:text-red-300"
                 >
-                  <TrashIcon />
+                  <Trash2 className="h-4 w-4" />
                 </button>
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -428,7 +441,7 @@ export default function Hosts() {
                         aria-label="Delete host"
                         className="inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 transition hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-500/20 dark:hover:text-red-300"
                       >
-                        <TrashIcon />
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                   </td>
@@ -532,18 +545,9 @@ function NextScanBadge({
       )}
       title="Time until next automatic scan"
     >
-      <ClockIcon />
+      <Clock className="h-3.5 w-3.5" />
       Next in {label}
     </span>
-  );
-}
-
-function ClockIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7v5l3 2" />
-    </svg>
   );
 }
 
@@ -671,73 +675,6 @@ function NewBadge({ onClick }: { onClick: () => void }) {
   );
 }
 
-function TrashIcon() {
-  return (
-    <svg
-      className="h-4 w-4"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M3 6h18" />
-      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-      <path d="M10 11v6" />
-      <path d="M14 11v6" />
-    </svg>
-  );
-}
-
-function BroomIcon({ className }: { className?: string }) {
-  // Simple, readable at 16px: angled handle, perpendicular collar, and
-  // a triangular bristle skirt with three vertical bristles inside.
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      {/* Handle */}
-      <path d="M19 4 L12 11" />
-      {/* Collar (band where bristles attach) */}
-      <path d="M10 9 L15 14" />
-      {/* Bristle skirt outline */}
-      <path d="M9 11 L5 21 L18 21 L17 13 Z" />
-      {/* Internal bristle hints */}
-      <path d="M9 16 L9 21" />
-      <path d="M13 16 L13 21" />
-    </svg>
-  );
-}
-
-function RefreshIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M21 12a9 9 0 1 1-3.36-7" />
-      <path d="M21 4v6h-6" />
-    </svg>
-  );
-}
-
 function FilterChip({
   active,
   count,
@@ -775,3 +712,24 @@ function FilterChip({
     </button>
   );
 }
+
+// Synthetic hosts + networks for the dev-only no-backend preview. Lives
+// next to the page that consumes it so it's obvious it's not production
+// data. Tree-shaken from prod builds because every read site is gated
+// on import.meta.env.DEV.
+const DEV_DUMMY_NETWORKS: NetworkConfig[] = [
+  { name: 'LAN', cidr: '192.168.1.0/24', vlanId: 1 },
+  { name: 'IoT', cidr: '192.168.20.0/24', vlanId: 20 },
+  { name: 'Guest', cidr: '192.168.30.0/24', vlanId: 30 },
+];
+
+const DEV_DUMMY_HOSTS: Host[] = [
+  { id: 1, mac: 'aa:bb:cc:00:00:01', ip: '192.168.1.10', vlanId: 1, vendor: 'Apple, Inc.', customName: 'Workstation', firstSeen: 1735689600, lastSeen: Math.floor(Date.now() / 1000), online: true, isNew: false, notifyOffline: true },
+  { id: 2, mac: 'aa:bb:cc:00:00:02', ip: '192.168.1.11', vlanId: 1, vendor: 'Sonos, Inc.', customName: 'Sonos Living', firstSeen: 1735689600, lastSeen: Math.floor(Date.now() / 1000), online: true, isNew: false, notifyOffline: false },
+  { id: 3, mac: 'aa:bb:cc:00:00:03', ip: '192.168.1.20', vlanId: 1, vendor: 'Synology, Inc.', customName: 'NAS', firstSeen: 1735689600, lastSeen: Math.floor(Date.now() / 1000), online: true, isNew: true, notifyOffline: true },
+  { id: 4, mac: 'aa:bb:cc:00:00:04', ip: '192.168.20.50', vlanId: 20, vendor: 'Espressif Inc.', customName: 'ESP32 Sensor', firstSeen: 1735689600, lastSeen: Math.floor(Date.now() / 1000) - 600, online: false, isNew: false, notifyOffline: false },
+  { id: 5, mac: 'aa:bb:cc:00:00:05', ip: '192.168.20.51', vlanId: 20, vendor: 'TP-Link Corp.', customName: 'Smart Plug', firstSeen: 1735689600, lastSeen: Math.floor(Date.now() / 1000), online: true, isNew: true, notifyOffline: false },
+  { id: 6, mac: 'aa:bb:cc:00:00:06', ip: '192.168.30.5', vlanId: 30, vendor: '(Unknown: locally administered)', customName: '', firstSeen: 1735689600, lastSeen: Math.floor(Date.now() / 1000), online: true, isNew: true, notifyOffline: false },
+  { id: 7, mac: 'aa:bb:cc:00:00:07', ip: '192.168.1.50', vlanId: 1, vendor: 'Raspberry Pi Foundation', customName: 'Pi 4', firstSeen: 1735689600, lastSeen: Math.floor(Date.now() / 1000), online: true, isNew: false, notifyOffline: true },
+  { id: 8, mac: 'aa:bb:cc:00:00:08', ip: '192.168.1.99', vlanId: 1, vendor: 'Intel Corporate', customName: '', firstSeen: 1735689600, lastSeen: Math.floor(Date.now() / 1000) - 3600, online: false, isNew: false, notifyOffline: false },
+];

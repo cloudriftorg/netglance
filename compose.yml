@@ -11,7 +11,7 @@
 
 services:
   netglance:
-    image: ghcr.io/massimoschiavop/netglance:latest
+    image: ghcr.io/netglance/netglance:latest
     restart: unless-stopped
     network_mode: host
     volumes:

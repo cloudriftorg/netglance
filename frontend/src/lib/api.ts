@@ -54,6 +54,22 @@ export const api = {
     request<{ ok: boolean }>('/api/admin/reset', { method: 'POST', body: JSON.stringify({ password }) }),
 };
 
+// isBackendDown returns true when the backend is genuinely unreachable —
+// either fetch errors out (network-level) or the response status looks
+// like an infrastructure failure rather than a real handler response.
+// Vite's dev proxy emits 500 Internal Server Error (not 502/504) when
+// the target is down, so we treat any 5xx as "down" for the purpose of
+// the dev-only escape hatch. Any 2xx/3xx/4xx means the backend HTTP
+// stack is up and answering, so the flag should NOT activate.
+export async function isBackendDown(): Promise<boolean> {
+  try {
+    const r = await fetch('/healthz', { cache: 'no-store' });
+    return r.status === 0 || r.status >= 500;
+  } catch {
+    return true;
+  }
+}
+
 export interface NetInterface {
   name: string;
   addresses: string[];

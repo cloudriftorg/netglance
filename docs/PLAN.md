@@ -2,7 +2,7 @@
 
 WebApp self-hostable stile WatchYourLAN/NetAlertX, **mobile-first** + **PWA**, distribuita come **immagine Docker singola** (binario Go + frontend embedded). Inventario host LAN multi-VLAN, storico online/offline, notifiche email.
 
-**Generica e distribuibile** — non specifica per Cloudrift. Pubblicabile su GitHub (licenza MIT/Apache-2.0) e GHCR. Chiunque la può adottare: niente subnet, gateway, SMTP, dominio o integrazioni hard-coded. Tutto configurabile dalla UI al primo avvio. I riferimenti a Cloudrift in questo piano (192.168.1.x, VLAN 1/20/30, `cloudrift.org`, OPNsense) sono **solo lo scenario di deploy di Massimo**, non default dell'app.
+**Generica e distribuibile** — non specifica per uno specifico deploy. Pubblicabile su GitHub (licenza MIT/Apache-2.0) e GHCR. Chiunque la può adottare: niente subnet, gateway, SMTP, dominio o integrazioni hard-coded. Tutto configurabile dalla UI al primo avvio. I riferimenti a `192.168.1.x`, VLAN 1/20/30, `cloudrift.org`, OPNsense in questo piano sono **solo uno scenario di esempio**, non default dell'app.
 
 ---
 
