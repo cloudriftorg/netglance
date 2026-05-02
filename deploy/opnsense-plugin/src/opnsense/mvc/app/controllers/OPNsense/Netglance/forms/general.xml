@@ -17,10 +17,4 @@
         <style>tokenize</style>
         <help>OPNsense interfaces to send ARP probes from. Pick the interfaces facing the LANs you want inventoried.</help>
     </field>
-    <field>
-        <id>general.scanInterval</id>
-        <label>Scan interval (seconds)</label>
-        <type>text</type>
-        <help>How often the daemon scans the configured networks. Min 30s.</help>
-    </field>
 </form>

@@ -16,12 +16,5 @@
             <Multiple>Y</Multiple>
             <AllowDynamic>Y</AllowDynamic>
         </scanIfaces>
-        <scanInterval type="IntegerField">
-            <Default>120</Default>
-            <Required>Y</Required>
-            <MinimumValue>30</MinimumValue>
-            <MaximumValue>86400</MaximumValue>
-            <ValidationMessage>Interval must be between 30 and 86400 seconds</ValidationMessage>
-        </scanInterval>
     </items>
 </model>

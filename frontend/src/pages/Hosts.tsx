@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
-import { api, Host, Scan } from '../lib/api';
+import { api, Host, NetworkConfig, Scan } from '../lib/api';
 import { errMessage, useToast } from '../components/Toast';
 import { useConfirm } from '../components/Confirm';
 import Spinner from '../components/Spinner';
@@ -11,8 +11,9 @@ export default function Hosts() {
   const toast = useToast();
   const confirm = useConfirm();
   const [hosts, setHosts] = useState<Host[]>([]);
+  const [networks, setNetworks] = useState<NetworkConfig[]>([]);
   const [q, setQ] = useState('');
-  const [filter, setFilter] = useState<'all' | 'online' | 'offline'>('all');
+  const [filter, setFilter] = useState<'all' | 'online' | 'offline' | 'new'>('all');
   const [vlan, setVlan] = useState<number | null>(null);
   const [scanning, setScanning] = useState(false);
   const [lastScan, setLastScan] = useState<Scan | null>(null);
@@ -51,6 +52,22 @@ export default function Hosts() {
       toast.error(errMessage(err, 'Load failed'));
     }
   }
+
+  // Networks come from settings — used to render VLAN cells/chips by name
+  // instead of the bare numeric id. Loaded once.
+  useEffect(() => {
+    api.getSettings()
+      .then((s) => setNetworks(s.networks ?? []))
+      .catch(() => {});
+  }, []);
+
+  const vlanLabel = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const n of networks) {
+      if (n.vlanId != null && n.name) m.set(n.vlanId, n.name);
+    }
+    return (id: number) => m.get(id) || `VLAN ${id}`;
+  }, [networks]);
 
   async function pollStatus() {
     try {
@@ -99,12 +116,14 @@ export default function Hosts() {
     const byVlan = new Map<number, number>();
     let online = 0;
     let offline = 0;
+    let isNewCount = 0;
     for (const h of hosts) {
       if (h.online) online++;
       else offline++;
+      if (h.isNew) isNewCount++;
       if (h.vlanId != null) byVlan.set(h.vlanId, (byVlan.get(h.vlanId) ?? 0) + 1);
     }
-    return { total: hosts.length, online, offline, byVlan };
+    return { total: hosts.length, online, offline, isNew: isNewCount, byVlan };
   }, [hosts]);
 
   const vlans = useMemo(
@@ -116,6 +135,7 @@ export default function Hosts() {
     return hosts.filter((h) => {
       if (filter === 'online' && !h.online) return false;
       if (filter === 'offline' && h.online) return false;
+      if (filter === 'new' && !h.isNew) return false;
       if (vlan != null && h.vlanId !== vlan) return false;
       return true;
     });
@@ -192,6 +212,23 @@ export default function Hosts() {
     }
   }
 
+  async function clearHosts() {
+    const ok = await confirm({
+      title: 'Clear host list?',
+      message: 'All hosts and their event history will be deleted. The next scan will rediscover live hosts as NEW.',
+      confirmLabel: 'Clear',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api.deleteAllHosts();
+      setHosts([]);
+      toast.success('Host list cleared');
+    } catch (err) {
+      toast.error(errMessage(err, 'Clear failed'));
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
@@ -205,6 +242,15 @@ export default function Hosts() {
         >
           {scanning ? <Spinner className="h-4 w-4" /> : <RefreshIcon className="h-4 w-4" />}
         </button>
+        <button
+          onClick={clearHosts}
+          disabled={hosts.length === 0}
+          aria-label="Clear host list"
+          title="Clear host list"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-600 p-0 text-white shadow-sm transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50 sm:h-10 sm:w-10"
+        >
+          <BroomIcon className="h-4 w-4" />
+        </button>
       </div>
 
       {/* Mobile-only: badge on its own row, inheriting parent's space-y gap */}
@@ -217,10 +263,11 @@ export default function Hosts() {
         <FilterChip active={filter === 'all'} count={counts.total} onClick={() => setFilter('all')}>All</FilterChip>
         <FilterChip active={filter === 'online'} count={counts.online} onClick={() => setFilter('online')}>Online</FilterChip>
         <FilterChip active={filter === 'offline'} count={counts.offline} onClick={() => setFilter('offline')}>Offline</FilterChip>
+        <FilterChip active={filter === 'new'} count={counts.isNew} onClick={() => setFilter('new')}>New</FilterChip>
         <span className="mx-1 text-slate-300">|</span>
         <FilterChip active={vlan === null} count={counts.total} onClick={() => setVlan(null)}>Any VLAN</FilterChip>
         {vlans.map((v) => (
-          <FilterChip key={v} active={vlan === v} count={counts.byVlan.get(v) ?? 0} onClick={() => setVlan(v)}>VLAN {v}</FilterChip>
+          <FilterChip key={v} active={vlan === v} count={counts.byVlan.get(v) ?? 0} onClick={() => setVlan(v)}>{vlanLabel(v)}</FilterChip>
         ))}
         {/* Desktop-only: badge right-aligned on the filter row */}
         <LastScanBadge scan={lastScan} scanning={scanning} className="ml-auto hidden sm:inline-flex" />
@@ -285,7 +332,7 @@ export default function Hosts() {
                 </span>
                 {h.vlanId != null && (
                   <span className="inline-block rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700 dark:bg-brand-700/20 dark:text-brand-50">
-                    VLAN {h.vlanId}
+                    {vlanLabel(h.vlanId)}
                   </span>
                 )}
               </div>
@@ -299,9 +346,9 @@ export default function Hosts() {
             <colgroup>
               <col className="w-52" />
               <col className="w-32" />
-              <col className="w-20" />
+              <col className="w-32" />
               <col className="hidden w-40 md:table-column" />
-              <col className="hidden w-60 lg:table-column" />
+              <col className="hidden w-56 lg:table-column" />
               <col className="w-24" />
               <col className="w-16" />
             </colgroup>
@@ -333,8 +380,8 @@ export default function Hosts() {
                   <td className="truncate px-3 font-mono text-xs text-slate-700 dark:text-slate-300">{h.ip}</td>
                   <td className="px-3">
                     {h.vlanId != null ? (
-                      <span className="inline-block rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700 dark:bg-brand-700/20 dark:text-brand-50">
-                        VLAN {h.vlanId}
+                      <span className="inline-block max-w-full truncate rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700 dark:bg-brand-700/20 dark:text-brand-50" title={vlanLabel(h.vlanId)}>
+                        {vlanLabel(h.vlanId)}
                       </span>
                     ) : (
                       <span className="text-xs text-slate-400">—</span>
@@ -625,6 +672,26 @@ function TrashIcon() {
       <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
       <path d="M10 11v6" />
       <path d="M14 11v6" />
+    </svg>
+  );
+}
+
+function BroomIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M19.4 4.6 14 10" />
+      <path d="m13 11 1.5 1.5" />
+      <path d="M11 13c-2 1-3.5 3-4 6l-2 2 4 1c2-.5 4-2 5-4l1-3" />
+      <path d="m15.5 12.5 4 4" />
     </svg>
   );
 }

@@ -37,6 +37,7 @@ export const api = {
     body: { customName: string; customVendor: string; notifyOffline: boolean; isNew: boolean }
   ) => request<Host>(`/api/hosts/${mac}`, { method: 'PATCH', body: JSON.stringify(body) }),
   deleteHost: (mac: string) => request<{ ok: boolean }>(`/api/hosts/${mac}`, { method: 'DELETE' }),
+  deleteAllHosts: () => request<{ ok: boolean }>('/api/hosts', { method: 'DELETE' }),
 
   runScan: () => request<{ status: string }>('/api/scan/run', { method: 'POST' }),
   scanStatus: () =>

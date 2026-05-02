@@ -14,8 +14,6 @@ import (
 var ManagedFields = []string{
 	"httpPort",
 	"scanIfaces",
-	"scanEverySeconds",
-	"scanEnabled",
 }
 
 type Config struct {

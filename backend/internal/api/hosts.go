@@ -96,6 +96,16 @@ func deleteHostHandler(st *store.Store) http.HandlerFunc {
 	}
 }
 
+func deleteAllHostsHandler(st *store.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if err := st.DeleteAllHosts(); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+	}
+}
+
 func uptimeHandler(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		mac := chi.URLParam(r, "mac")

@@ -38,6 +38,7 @@ func NewRouter(st *store.Store, webuiHandler http.Handler, opts RouterOptions) h
 			r.Get("/me", meHandler(st))
 
 			r.Get("/hosts", listHostsHandler(st))
+			r.Delete("/hosts", deleteAllHostsHandler(st))
 			r.Get("/hosts/{mac}", getHostHandler(st))
 			r.Patch("/hosts/{mac}", updateHostHandler(st))
 			r.Delete("/hosts/{mac}", deleteHostHandler(st))

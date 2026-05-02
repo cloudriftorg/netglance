@@ -255,6 +255,14 @@ func (s *Store) DeleteHost(mac string) error {
 	return err
 }
 
+// DeleteAllHosts wipes the entire host inventory. host_events cascade via
+// FK. Used by the "Clear list" action — a fresh scan will re-inventory
+// everything as brand-new.
+func (s *Store) DeleteAllHosts() error {
+	_, err := s.db.Exec(`DELETE FROM hosts`)
+	return err
+}
+
 func (s *Store) UpdateHostMeta(mac, customName, customVendor string, notifyOffline, isNew bool) error {
 	mac = strings.ToLower(mac)
 	_, err := s.db.Exec(
