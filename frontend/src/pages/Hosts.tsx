@@ -269,8 +269,11 @@ export default function Hosts() {
       {/* Mobile-only: badges on their own row, wrapping cleanly with a gap
           so "Last scan …" doesn't sit flush against "Next in …". */}
       <div className="flex flex-wrap items-center gap-2 sm:hidden">
-        <NextScanBadge anchor={nextScanAnchor} scanning={scanning} />
+        {/* On mobile the user's eye lands on the scan history first
+            (what was found, when), then the countdown for the next
+            cycle — desktop keeps the countdown-then-history order. */}
         <LastScanBadge scan={lastScan} scanning={scanning} />
+        <NextScanBadge anchor={nextScanAnchor} scanning={scanning} />
       </div>
 
       <div className="flex flex-wrap items-center gap-2 text-sm">

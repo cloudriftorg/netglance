@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { api, Settings as SettingsT, NetworkConfig, NetInterface, ManagedInfo } from '../lib/api';
 import { errMessage, useToast } from '../components/Toast';
 import IfacePicker from '../components/IfacePicker';
-import { Trash2 } from 'lucide-react';
+import { Info, Trash2 } from 'lucide-react';
 
 export default function SettingsPage() {
   const toast = useToast();
@@ -100,20 +100,15 @@ export default function SettingsPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
-      <div className="flex shrink-0 items-center justify-between">
-        <h2 className="text-lg font-semibold">Settings</h2>
+      <div className="flex shrink-0 items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <h2 className="text-lg font-semibold">Settings</h2>
+          {managed.managed && <ManagedBadge />}
+        </div>
         <button onClick={save} disabled={saving} className="btn-primary">
           {saving ? 'Saving…' : 'Save settings'}
         </button>
       </div>
-
-      {managed.managed && (
-        <div className="shrink-0 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
-          <strong>Managed by OPNsense.</strong> Scan interfaces, networks, interval and listen port
-          are read-only here — edit them from <em>Services → Netglance</em> in your OPNsense panel.
-          Notifications, SMTP and per-host preferences remain editable.
-        </div>
-      )}
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 overflow-y-auto pb-4 lg:grid-cols-2">
         <Section
@@ -220,6 +215,11 @@ export default function SettingsPage() {
         <Section
           title="SMTP"
           desc="Plain (no auth/no TLS) works for an internal LAN relay. STARTTLS or implicit TLS for external providers."
+          action={
+            <button onClick={testEmail} className="btn-secondary text-sm">
+              Send test email
+            </button>
+          }
         >
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <Field label="Host">
@@ -242,7 +242,6 @@ export default function SettingsPage() {
                 value={s.smtp?.from ?? ''}
                 onChange={(e) => update('smtp', { ...(s.smtp ?? blankSMTP()), from: e.target.value })}
               />
-              <p className="mt-1 text-xs text-slate-500">Must be a full email address (user@domain), not just a domain.</p>
             </Field>
             <Field label="Recipients (comma-separated)">
               <input
@@ -294,9 +293,6 @@ export default function SettingsPage() {
               </Field>
             </div>
           )}
-          <button onClick={testEmail} className="btn-secondary text-sm">
-            Send test email
-          </button>
         </Section>
 
         <div className="flex h-full flex-col gap-6">
@@ -426,24 +422,58 @@ function ResetDialog({ onClose, onConfirmed }: { onClose: () => void; onConfirme
   );
 }
 
+// ManagedBadge sits beside the Settings page title and surfaces the
+// "managed by OPNsense" notice as a tooltip-style popover instead of a
+// page-wide banner. The badge stays compact when the user already
+// knows their netglance is OPNsense-managed; hover (desktop) or tap
+// (touch) reveals the full message.
+function ManagedBadge() {
+  const [open, setOpen] = useState(false);
+  return (
+    <span className="relative inline-flex">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200"
+        aria-label="Managed by OPNsense — details"
+      >
+        <Info className="h-3 w-3" />
+        Managed by OPNsense
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full z-20 mt-2 w-72 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 shadow-lg dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100">
+          Scan interfaces, networks, interval and listen port are read-only here — edit them from <em>Services → Netglance</em> in your OPNsense panel. Notifications, SMTP and per-host preferences remain editable.
+        </div>
+      )}
+    </span>
+  );
+}
+
 function Section({
   title,
   desc,
   className,
+  action,
   children,
 }: {
   title: string;
   desc?: string;
   className?: string;
+  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <section
       className={`space-y-3 rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 ${className ?? ''}`}
     >
-      <div>
-        <h3 className="text-sm font-semibold">{title}</h3>
-        {desc && <p className="mt-0.5 text-xs text-slate-500">{desc}</p>}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold">{title}</h3>
+          {desc && <p className="mt-0.5 text-xs text-slate-500">{desc}</p>}
+        </div>
+        {action && <div className="shrink-0">{action}</div>}
       </div>
       <div className="space-y-3">{children}</div>
     </section>
