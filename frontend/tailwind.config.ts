@@ -13,6 +13,13 @@ export default {
           500: '#f5681c',
           600: '#d94f00',
           700: '#b14000',
+          // 800 / 900 added after the opaque-theme sweep mapped
+          // `dark:bg-brand-700/20` → `dark:bg-brand-900` — without
+          // these the dark override resolved to nothing and the VLAN
+          // badge stayed `bg-brand-50` with `text-brand-50` on top
+          // (same colour, invisible label).
+          800: '#7a2c00',
+          900: '#4a1a00',
         },
         // Override Tailwind's default slate dark shades to match OPNsense's
         // near-black firewall theme (slate's defaults have a navy-blue tint
