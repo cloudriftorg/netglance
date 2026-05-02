@@ -25,6 +25,29 @@ func runScanHandler(st *store.Store) http.HandlerFunc {
 			}
 			nets = append(nets, scanner.Network{Name: n.Name, CIDR: n.CIDR, VLANID: v})
 		}
+		// Mirror the auto-scan loop (cmd/server/main.go loadScannerSettings):
+		// build the same NotifyConfig from the persisted smtp + notify
+		// settings so a manual 'Scan now' fires the same emails an
+		// automatic tick would. Without this, manual scans were silent
+		// even with everything enabled.
+		var notifyCfg *scanner.NotifyConfig
+		if s.SMTP != nil && s.SMTP.Host != "" && len(s.SMTP.Recipients) > 0 {
+			notifyCfg = &scanner.NotifyConfig{
+				SMTP: scanner.SMTPConfig{
+					Host:       s.SMTP.Host,
+					Port:       s.SMTP.Port,
+					UseTLS:     s.SMTP.UseTLS,
+					UseAuth:    s.SMTP.UseAuth,
+					Username:   s.SMTP.Username,
+					Password:   s.SMTP.Password,
+					From:       s.SMTP.From,
+					Recipients: s.SMTP.Recipients,
+				},
+				OnNewHost:    s.Notify.NewHost,
+				OnOffline:    s.Notify.Offline,
+				OnBackOnline: s.Notify.BackOnline,
+			}
+		}
 		go func() {
 			defer scanner.Release()
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
@@ -35,6 +58,7 @@ func runScanHandler(st *store.Store) http.HandlerFunc {
 				ScanEnabled:      true,
 				ScanEverySeconds: s.ScanEverySeconds,
 				OfflineAfter:     s.OfflineAfter,
+				Notify:           notifyCfg,
 			})
 		}()
 		writeJSON(w, http.StatusAccepted, map[string]any{"status": "started"})
