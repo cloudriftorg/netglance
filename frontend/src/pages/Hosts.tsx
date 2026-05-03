@@ -296,27 +296,51 @@ export default function Hosts() {
         </button>
       </div>
 
-      <div className={clsx('flex-wrap items-center gap-2 text-sm', showFilters ? 'flex' : 'hidden')}>
-        <FilterChip active={filter === 'all'} count={counts.total} onClick={() => setFilter('all')}>All</FilterChip>
-        <FilterChip active={filter === 'online'} count={counts.online} onClick={() => setFilter('online')}>Online</FilterChip>
-        <FilterChip active={filter === 'offline'} count={counts.offline} onClick={() => setFilter('offline')}>Offline</FilterChip>
-        <span className="mx-1 text-slate-300">|</span>
-        <FilterChip active={ackFilter === 'all'} count={counts.total} onClick={() => setAckFilter('all')}>All</FilterChip>
-        <FilterChip active={ackFilter === 'new'} count={counts.isNew} onClick={() => setAckFilter('new')}>New</FilterChip>
-        <FilterChip active={ackFilter === 'known'} count={counts.known} onClick={() => setAckFilter('known')}>Known</FilterChip>
-        <span className="mx-1 text-slate-300">|</span>
-        <FilterChip active={vlan === null} count={counts.total} onClick={() => setVlan(null)}>Any VLAN</FilterChip>
-        {vlans.map((v) => {
-          // Filter chips always prefix "VLAN" so the section reads cleanly
-          // even when no name is configured. The host badges in the table
-          // stay terse (just the id or name) — see vlanLabel() above.
-          const named = networks.find((n) => n.vlanId === v && n.name);
-          return (
-            <FilterChip key={v} active={vlan === v} count={counts.byVlan.get(v) ?? 0} onClick={() => setVlan(v)}>
-              {named ? named.name : `VLAN ${v}`}
-            </FilterChip>
-          );
-        })}
+      <div className={clsx('flex-col gap-2 text-sm', showFilters ? 'flex' : 'hidden')}>
+        <div className="flex flex-wrap items-center gap-2">
+          <FilterChip active={filter === 'all'} count={counts.total} onClick={() => setFilter('all')}>All</FilterChip>
+          <FilterChip active={filter === 'online'} count={counts.online} onClick={() => setFilter('online')}>Online</FilterChip>
+          <FilterChip active={filter === 'offline'} count={counts.offline} onClick={() => setFilter('offline')}>Offline</FilterChip>
+          <span className="mx-1 text-slate-300">|</span>
+          <FilterChip active={ackFilter === 'all'} count={counts.total} onClick={() => setAckFilter('all')}>All</FilterChip>
+          <FilterChip active={ackFilter === 'new'} count={counts.isNew} onClick={() => setAckFilter('new')}>New</FilterChip>
+          <FilterChip active={ackFilter === 'known'} count={counts.known} onClick={() => setAckFilter('known')}>Known</FilterChip>
+          <span className="mx-1 text-slate-300">|</span>
+          <FilterChip active={vlan === null} count={counts.total} onClick={() => setVlan(null)}>Any VLAN</FilterChip>
+          {vlans.map((v) => {
+            // Filter chips always prefix "VLAN" so the section reads cleanly
+            // even when no name is configured. The host badges in the table
+            // stay terse (just the id or name) — see vlanLabel() above.
+            const named = networks.find((n) => n.vlanId === v && n.name);
+            return (
+              <FilterChip key={v} active={vlan === v} count={counts.byVlan.get(v) ?? 0} onClick={() => setVlan(v)}>
+                {named ? named.name : `VLAN ${v}`}
+              </FilterChip>
+            );
+          })}
+        </div>
+
+        {/* Mobile-only sort row. The desktop table already exposes sort
+            via the column headers; on mobile (card list) there's no
+            equivalent surface, so we add cycle-state chips here. Each
+            click on a key advances unsorted → asc → desc → unsorted,
+            same three-state cycle as clickSort() on desktop. */}
+        <div className="flex flex-wrap items-center gap-2 sm:hidden">
+          <span className="text-xs uppercase tracking-wide text-slate-500">Sort</span>
+          <SortChip label="Name" sortKey="name" sort={sort} onClick={clickSort} />
+          <SortChip label="IP" sortKey="ip" sort={sort} onClick={clickSort} />
+          <SortChip label="VLAN" sortKey="vlan" sort={sort} onClick={clickSort} />
+          <SortChip label="Status" sortKey="status" sort={sort} onClick={clickSort} />
+          {sort && (
+            <button
+              type="button"
+              onClick={() => setSort(null)}
+              className="rounded-full px-2 py-0.5 text-xs text-slate-500 underline-offset-2 hover:underline"
+            >
+              clear
+            </button>
+          )}
+        </div>
       </div>
 
       {hosts.length === 0 ? (
@@ -682,6 +706,40 @@ function SortIndicator({ dir }: { dir: 'asc' | 'desc' | null }) {
     <svg className="h-3 w-3" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
       {dir === 'asc' ? <path d="M3 7l3-4 3 4z" /> : <path d="M3 5l3 4 3-4z" />}
     </svg>
+  );
+}
+
+// SortChip mirrors the desktop SortableTh three-state cycle but lives
+// in the mobile filter row. Active chip shows an arrow indicator;
+// inactive chips look like neutral filter chips so they read as
+// "another filter dimension you can apply". Tap to advance
+// unsorted → asc → desc → unsorted.
+function SortChip({
+  label,
+  sortKey,
+  sort,
+  onClick,
+}: {
+  label: string;
+  sortKey: SortKey;
+  sort: { key: SortKey; dir: 'asc' | 'desc' } | null;
+  onClick: (k: SortKey) => void;
+}) {
+  const active = sort?.key === sortKey;
+  return (
+    <button
+      type="button"
+      onClick={() => onClick(sortKey)}
+      className={clsx(
+        'inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs transition',
+        active
+          ? 'border-brand-500 bg-brand-500 text-white'
+          : 'border-slate-300 text-slate-600 hover:border-slate-400 dark:border-slate-700 dark:text-slate-300',
+      )}
+    >
+      <span>{label}</span>
+      <SortIndicator dir={active ? sort!.dir : null} />
+    </button>
   );
 }
 
