@@ -437,8 +437,12 @@ export default function Hosts() {
           ))}
         </ul>
 
-        {/* Desktop: table */}
-        <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:block">
+        {/* Desktop: table. No overflow-x-auto here — that would create
+            its own scroll container and the sticky thead inside would
+            anchor to it instead of the page-level scroll. The table is
+            table-fixed w-full so it never overflows horizontally
+            anyway; narrower viewports drop columns via md:/lg: rules. */}
+        <div className="hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:block">
           <table className="w-full table-fixed text-sm">
             <colgroup>
               <col className="w-52" />
@@ -451,7 +455,12 @@ export default function Hosts() {
               <col className="w-28" />
               <col className="w-16" />
             </colgroup>
-            <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-400">
+            {/* Sticky header: stays pinned at the top of the scroll
+                container while the body scrolls. The bg colour on
+                thead matters — without it the rows show through the
+                pinned header. z-10 sits above tbody but below any
+                modal/popover. */}
+            <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-400">
               <tr>
                 <SortableTh label="Name" sortKey="name" sort={sort} onClick={clickSort} />
                 <SortableTh label="IP" sortKey="ip" sort={sort} onClick={clickSort} />
