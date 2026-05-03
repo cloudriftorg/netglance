@@ -138,6 +138,17 @@ func runOnce(ctx context.Context, st *store.Store, s Settings, logger *slog.Logg
 	}); err != nil {
 		logger.Warn("record scan", "err", err)
 	}
+
+	// Trim host_events to match the cap the UI renders (HostDetail
+	// slices to 100). Anything beyond is invisible storage that grows
+	// forever on flapping hosts. Cheap: one indexed DELETE per scan,
+	// no-op when nobody's over the cap.
+	if pruned, err := st.PruneEventsPerHost(100); err != nil {
+		logger.Warn("prune events", "err", err)
+	} else if pruned > 0 {
+		logger.Debug("pruned old events", "rows", pruned)
+	}
+
 	logger.Info("scan complete", "found", len(all))
 	return len(all)
 }

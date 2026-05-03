@@ -394,6 +394,38 @@ func (s *Store) HostEvents(hostID int64, since int64, limit int) ([]HostEvent, e
 	return out, nil
 }
 
+// PruneEventsPerHost trims host_events down to the most recent
+// `maxPerHost` rows for every host. The Hosts page already caps the
+// rendered list at ~100, so anything beyond that is dead storage.
+// Without this the table grew unbounded — a single flaky IoT device
+// flapping every scan adds ~720 rows/day.
+//
+// Implementation uses a single DELETE with a windowed subquery:
+// ROW_NUMBER() partitions by host_id, keeps the newest `maxPerHost`,
+// drops the rest. SQLite 3.25+ (the version modernc bundles) supports
+// window functions natively. One round-trip, no per-host loop.
+func (s *Store) PruneEventsPerHost(maxPerHost int) (int64, error) {
+	if maxPerHost <= 0 {
+		return 0, nil
+	}
+	res, err := s.db.Exec(`
+		DELETE FROM host_events
+		WHERE id IN (
+			SELECT id FROM (
+				SELECT id,
+				       ROW_NUMBER() OVER (PARTITION BY host_id ORDER BY ts DESC, id DESC) AS rn
+				FROM host_events
+			)
+			WHERE rn > ?
+		)
+	`, maxPerHost)
+	if err != nil {
+		return 0, err
+	}
+	n, _ := res.RowsAffected()
+	return n, nil
+}
+
 func boolToInt(b bool) int {
 	if b {
 		return 1
