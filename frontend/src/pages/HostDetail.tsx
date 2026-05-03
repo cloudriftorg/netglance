@@ -5,6 +5,7 @@ import { ArrowLeft } from 'lucide-react';
 import { api, Host, HostEvent } from '../lib/api';
 import { errMessage, useToast } from '../components/Toast';
 import { useConfirm } from '../components/Confirm';
+import { useScrollPersist } from '../components/useScrollPersist';
 import Spinner from '../components/Spinner';
 
 export default function HostDetail() {
@@ -20,6 +21,9 @@ export default function HostDetail() {
   const [isNew, setIsNew] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // Per-MAC scroll memory: visiting a different host gets its own
+  // saved position rather than inheriting the previous one.
+  const scrollRef = useScrollPersist<HTMLDivElement>(`host.${mac ?? 'unknown'}`);
 
   useEffect(() => {
     if (!mac) return;
@@ -95,7 +99,7 @@ export default function HostDetail() {
         </button>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pb-4">
+      <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pb-4">
       <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="text-lg font-semibold">{displayName}</h2>

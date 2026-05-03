@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { api, Settings as SettingsT, NetworkConfig, NetInterface, ManagedInfo } from '../lib/api';
 import { errMessage, useToast } from '../components/Toast';
 import IfacePicker from '../components/IfacePicker';
+import { useScrollPersist } from '../components/useScrollPersist';
 import { Info, Trash2 } from 'lucide-react';
 
 export default function SettingsPage() {
@@ -11,6 +12,7 @@ export default function SettingsPage() {
   const [ifaces, setIfaces] = useState<NetInterface[]>([]);
   const [resetOpen, setResetOpen] = useState(false);
   const [managed, setManaged] = useState<ManagedInfo>({ managed: false, fields: [] });
+  const scrollRef = useScrollPersist<HTMLDivElement>('settings');
 
   useEffect(() => {
     api.getSettings()
@@ -110,7 +112,7 @@ export default function SettingsPage() {
         </button>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 overflow-y-auto pb-4 lg:grid-cols-2">
+      <div ref={scrollRef} className="grid min-h-0 flex-1 grid-cols-1 gap-6 overflow-y-auto pb-4 lg:grid-cols-2">
         <Section
           title="Scan"
           desc="Periodic scan runs in the background; the manual button on the Hosts page works regardless."

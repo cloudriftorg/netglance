@@ -4,10 +4,16 @@ import clsx from 'clsx';
 import { api, Host, NetworkConfig } from '../lib/api';
 import { errMessage, useToast } from '../components/Toast';
 import { useConfirm } from '../components/Confirm';
+import { useScrollPersist } from '../components/useScrollPersist';
 import { Clock, Filter, Paintbrush, RefreshCw, Trash2 } from 'lucide-react';
 
 export default function Hosts() {
   const navigate = useNavigate();
+  // Two scroll containers (mobile cards + desktop table) but only one
+  // is visible at a time — separate keys keep their positions
+  // independent so resizing the window doesn't surprise-clobber.
+  const mobileScrollRef = useScrollPersist<HTMLUListElement>('hosts.mobile');
+  const desktopScrollRef = useScrollPersist<HTMLDivElement>('hosts.desktop');
   const toast = useToast();
   const confirm = useConfirm();
   const [hosts, setHosts] = useState<Host[]>([]);
@@ -394,7 +400,7 @@ export default function Hosts() {
         // desktop wrapper) owns its own vertical scroll.
         <div className="flex min-h-0 flex-1 flex-col gap-4">
         {/* Mobile: card list */}
-        <ul className="min-h-0 flex-1 space-y-2 overflow-y-auto sm:hidden">
+        <ul ref={mobileScrollRef} className="min-h-0 flex-1 space-y-2 overflow-y-auto sm:hidden">
           {sortedHosts.map((h) => (
             <li
               key={h.mac}
@@ -467,7 +473,7 @@ export default function Hosts() {
             overflow-x — table-fixed w-full prevents horizontal
             overflow; narrower viewports drop columns via md:/lg:
             rules before the breakpoint flips to the mobile cards. */}
-        <div className="hidden min-h-0 flex-1 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:block">
+        <div ref={desktopScrollRef} className="hidden min-h-0 flex-1 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:block">
           <table className="w-full table-fixed border-separate border-spacing-0 text-sm">
             <colgroup>
               <col className="w-52" />

@@ -37,11 +37,11 @@ export default function Layout({ children, onLogout }: Props) {
               onClick={() => window.location.reload()}
               aria-label="Refresh page"
               title="Refresh page"
-              className="rounded-md px-2 py-1 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-slate-100 sm:hidden"
+              className="rounded-md px-2 py-1 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-slate-100 lg:hidden"
             >
               <RefreshCw className="h-4 w-4" />
             </button>
-            <span aria-hidden className="h-5 w-px bg-slate-200 dark:bg-slate-700 sm:hidden" />
+            <span aria-hidden className="h-5 w-px bg-slate-200 dark:bg-slate-700 lg:hidden" />
             <ThemeToggle />
             <span aria-hidden className="h-5 w-px bg-slate-200 dark:bg-slate-700" />
             <button
