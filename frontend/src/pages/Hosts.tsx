@@ -368,9 +368,11 @@ export default function Hosts() {
           .
         </p>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+        // Outer is just a flex column — each variant (mobile ul /
+        // desktop wrapper) owns its own vertical scroll.
+        <div className="flex min-h-0 flex-1 flex-col gap-4">
         {/* Mobile: card list */}
-        <ul className="space-y-2 sm:hidden">
+        <ul className="min-h-0 flex-1 space-y-2 overflow-y-auto sm:hidden">
           {sortedHosts.map((h) => (
             <li
               key={h.mac}
@@ -437,13 +439,14 @@ export default function Hosts() {
           ))}
         </ul>
 
-        {/* Desktop: table. No overflow-x-auto here — that would create
-            its own scroll container and the sticky thead inside would
-            anchor to it instead of the page-level scroll. The table is
-            table-fixed w-full so it never overflows horizontally
-            anyway; narrower viewports drop columns via md:/lg: rules. */}
-        <div className="hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:block">
-          <table className="w-full table-fixed text-sm">
+        {/* Desktop: table. The wrapper itself owns the vertical
+            scroll so the scrollbar starts *below* the sticky thead
+            (otherwise the bar would run through the header). No
+            overflow-x — table-fixed w-full prevents horizontal
+            overflow; narrower viewports drop columns via md:/lg:
+            rules before the breakpoint flips to the mobile cards. */}
+        <div className="hidden min-h-0 flex-1 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:block">
+          <table className="w-full table-fixed border-separate border-spacing-0 text-sm">
             <colgroup>
               <col className="w-52" />
               <col className="w-32" />
@@ -460,7 +463,7 @@ export default function Hosts() {
                 thead matters — without it the rows show through the
                 pinned header. z-10 sits above tbody but below any
                 modal/popover. */}
-            <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-400">
+            <thead className="sticky top-0 z-10 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 [&>tr>th]:border-b [&>tr>th]:border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:[&>tr>th]:border-slate-800">
               <tr>
                 <SortableTh label="Name" sortKey="name" sort={sort} onClick={clickSort} />
                 <SortableTh label="IP" sortKey="ip" sort={sort} onClick={clickSort} />
@@ -473,7 +476,11 @@ export default function Hosts() {
                 <th className="px-3 py-2.5"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            {/* divide-y doesn't apply to <tr> in border-separate
+                tables, so put the row separator on each cell of any
+                row that has a preceding tr (i.e. every row except
+                the first). */}
+            <tbody className="[&>tr+tr>td]:border-t [&>tr+tr>td]:border-slate-100 dark:[&>tr+tr>td]:border-slate-800">
               {sortedHosts.map((h) => (
                 <tr key={h.mac} className="h-12 align-middle transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40">
                   <td className="px-3 font-medium">

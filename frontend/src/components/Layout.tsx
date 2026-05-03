@@ -21,14 +21,17 @@ export default function Layout({ children, onLogout }: Props) {
         style={{ paddingTop: 'env(safe-area-inset-top)' }}
       >
         <div className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
-          <div className="flex items-center gap-2 sm:flex-1">
-            <h1 className="text-lg font-semibold tracking-tight">Netglance</h1>
+          <h1 className="text-lg font-semibold tracking-tight sm:flex-1">Netglance</h1>
+          <nav className="order-3 flex w-full items-center justify-center gap-1 text-sm sm:order-none sm:w-auto">
+            <Tab to="/" label="Hosts" />
+            <Tab to="/settings" label="Settings" />
+          </nav>
+          <div className="flex items-center gap-2 sm:flex-1 sm:justify-end">
             {/* Mobile-only page refresh — installed-PWA users have no
-                browser reload button, so the title bar gets one shaped
-                like the Logout / theme toggle for visual consistency.
-                Hard reload bypasses the SW cache so a stuck stale UI
-                comes back fresh. */}
-            <span aria-hidden className="h-5 w-px bg-slate-200 dark:bg-slate-700 sm:hidden" />
+                browser reload button, so the right cluster gets one
+                shaped like the Logout / theme toggle for visual
+                consistency. Hard reload bypasses the SW cache so a
+                stuck stale UI comes back fresh. */}
             <button
               type="button"
               onClick={() => window.location.reload()}
@@ -38,12 +41,7 @@ export default function Layout({ children, onLogout }: Props) {
             >
               <RefreshCw className="h-4 w-4" />
             </button>
-          </div>
-          <nav className="order-3 flex w-full items-center justify-center gap-1 text-sm sm:order-none sm:w-auto">
-            <Tab to="/" label="Hosts" />
-            <Tab to="/settings" label="Settings" />
-          </nav>
-          <div className="flex items-center gap-2 sm:flex-1 sm:justify-end">
+            <span aria-hidden className="h-5 w-px bg-slate-200 dark:bg-slate-700 sm:hidden" />
             <ThemeToggle />
             <span aria-hidden className="h-5 w-px bg-slate-200 dark:bg-slate-700" />
             <button
