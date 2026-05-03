@@ -12,10 +12,20 @@ export default function Hosts() {
   const confirm = useConfirm();
   const [hosts, setHosts] = useState<Host[]>([]);
   const [networks, setNetworks] = useState<NetworkConfig[]>([]);
-  const [q, setQ] = useState('');
-  const [filter, setFilter] = useState<'all' | 'online' | 'offline'>('all');
-  const [ackFilter, setAckFilter] = useState<'all' | 'new' | 'known'>('all');
-  const [vlan, setVlan] = useState<number | null>(null);
+  // Persist every filter dimension across reloads (page refresh on
+  // desktop, PWA cold start on mobile) — without this, the toolbar
+  // came back blank every time and you had to redial your view in.
+  // Initialised from localStorage; a small useEffect mirrors writes
+  // back. Keys are namespaced under `netglance.hosts.*` to match the
+  // existing sort / showFilters keys.
+  const [q, setQ] = useState<string>(() => loadStr('q', ''));
+  const [filter, setFilter] = useState<'all' | 'online' | 'offline'>(
+    () => loadEnum<'all' | 'online' | 'offline'>('filter', ['all', 'online', 'offline'], 'all'),
+  );
+  const [ackFilter, setAckFilter] = useState<'all' | 'new' | 'known'>(
+    () => loadEnum<'all' | 'new' | 'known'>('ack', ['all', 'new', 'known'], 'all'),
+  );
+  const [vlan, setVlan] = useState<number | null>(() => loadVlan());
   const [scanning, setScanning] = useState(false);
   // Anchor + remaining seconds reported by the server at the last poll. The
   // local timer ticks down from (anchor + remaining) using the client clock,
@@ -41,6 +51,18 @@ export default function Hosts() {
       /* storage disabled — silent */
     }
   }, [showFilters]);
+
+  useEffect(() => { saveStr('q', q); }, [q]);
+  useEffect(() => { saveStr('filter', filter); }, [filter]);
+  useEffect(() => { saveStr('ack', ackFilter); }, [ackFilter]);
+  useEffect(() => {
+    try {
+      if (vlan == null) localStorage.removeItem('netglance.hosts.vlan');
+      else localStorage.setItem('netglance.hosts.vlan', String(vlan));
+    } catch {
+      /* storage disabled — silent */
+    }
+  }, [vlan]);
 
   // Persist sort preference across reloads. `null` (unsorted) clears the
   // saved key so a fresh load really does come up unsorted.
@@ -617,6 +639,43 @@ function ScanButton({
 
 type SortKey = 'name' | 'ip' | 'vlan' | 'mac' | 'vendor' | 'status';
 const SORT_KEYS: SortKey[] = ['name', 'ip', 'vlan', 'mac', 'vendor', 'status'];
+
+// Tiny localStorage wrappers for the `netglance.hosts.*` filter
+// preferences. Centralised so the read/write sites can stay one
+// line each, and so a quota / disabled-storage error in one place
+// doesn't silently lose another preference.
+function loadStr(key: string, fallback: string): string {
+  try {
+    return localStorage.getItem(`netglance.hosts.${key}`) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function saveStr(key: string, value: string) {
+  try {
+    if (value === '') localStorage.removeItem(`netglance.hosts.${key}`);
+    else localStorage.setItem(`netglance.hosts.${key}`, value);
+  } catch {
+    /* storage disabled / quota — silent */
+  }
+}
+
+function loadEnum<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
+  const raw = loadStr(key, fallback);
+  return (allowed as readonly string[]).includes(raw) ? (raw as T) : fallback;
+}
+
+function loadVlan(): number | null {
+  try {
+    const raw = localStorage.getItem('netglance.hosts.vlan');
+    if (raw == null) return null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
+  } catch {
+    return null;
+  }
+}
 
 function loadSortPref(): { key: SortKey; dir: 'asc' | 'desc' } | null {
   try {
