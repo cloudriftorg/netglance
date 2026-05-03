@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 import clsx from 'clsx';
+import { RefreshCw } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 
 interface Props {
@@ -20,7 +21,24 @@ export default function Layout({ children, onLogout }: Props) {
         style={{ paddingTop: 'env(safe-area-inset-top)' }}
       >
         <div className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
-          <h1 className="text-lg font-semibold tracking-tight sm:flex-1">Netglance</h1>
+          <div className="flex items-center gap-2 sm:flex-1">
+            <h1 className="text-lg font-semibold tracking-tight">Netglance</h1>
+            {/* Mobile-only page refresh — installed-PWA users have no
+                browser reload button, so the title bar gets one shaped
+                like the Logout / theme toggle for visual consistency.
+                Hard reload bypasses the SW cache so a stuck stale UI
+                comes back fresh. */}
+            <span aria-hidden className="h-5 w-px bg-slate-200 dark:bg-slate-700 sm:hidden" />
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              aria-label="Refresh page"
+              title="Refresh page"
+              className="rounded-md px-2 py-1 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-slate-100 sm:hidden"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </button>
+          </div>
           <nav className="order-3 flex w-full items-center justify-center gap-1 text-sm sm:order-none sm:w-auto">
             <Tab to="/" label="Hosts" />
             <Tab to="/settings" label="Settings" />
