@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/netglance/netglance/internal/notify"
-	"github.com/netglance/netglance/internal/store"
+	"github.com/cloudriftorg/netglance/internal/notify"
+	"github.com/cloudriftorg/netglance/internal/store"
 )
 
 func testSMTPHandler(st *store.Store) http.HandlerFunc {

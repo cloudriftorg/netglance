@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/netglance/netglance/internal/store"
+	"github.com/cloudriftorg/netglance/internal/store"
 )
 
 type settingsBundle struct {

@@ -1,6 +1,6 @@
 [Unit]
 Description=netglance — LAN host discovery and inventory
-Documentation=https://github.com/netglance/netglance
+Documentation=https://github.com/cloudriftorg/netglance
 After=network-online.target
 Wants=network-online.target
 

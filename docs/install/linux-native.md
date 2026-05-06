@@ -13,7 +13,7 @@ or a dedicated bare-metal Linux router.
 ```sh
 # 1. Download the binary for your arch from the latest release
 curl -L -o /usr/local/sbin/netglance \
-  https://github.com/netglance/netglance/releases/latest/download/netglance-linux-amd64
+  https://github.com/cloudriftorg/netglance/releases/latest/download/netglance-linux-amd64
 chmod +x /usr/local/sbin/netglance
 
 # 2. Create the unprivileged user
@@ -21,7 +21,7 @@ useradd --system --no-create-home --shell /usr/sbin/nologin netglance
 
 # 3. Drop in the systemd unit
 curl -L -o /etc/systemd/system/netglance.service \
-  https://raw.githubusercontent.com/netglance/netglance/main/deploy/systemd/netglance.service
+  https://raw.githubusercontent.com/cloudriftorg/netglance/main/deploy/systemd/netglance.service
 
 # 4. Start it
 systemctl daemon-reload

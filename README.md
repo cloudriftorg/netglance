@@ -1,7 +1,7 @@
 # Netglance
 
-[![Build & Publish](https://github.com/netglance/netglance/actions/workflows/build.yml/badge.svg)](https://github.com/netglance/netglance/actions/workflows/build.yml)
-[![Latest release](https://img.shields.io/github/v/release/netglance/netglance?sort=semver)](https://github.com/netglance/netglance/releases)
+[![Build & Publish](https://github.com/cloudriftorg/netglance/actions/workflows/build.yml/badge.svg)](https://github.com/cloudriftorg/netglance/actions/workflows/build.yml)
+[![Latest release](https://img.shields.io/github/v/release/netglance/netglance?sort=semver)](https://github.com/cloudriftorg/netglance/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 > ⚠️ **Early development.** Netglance is under active development —
@@ -57,8 +57,8 @@ designed to run on the firewall itself — most users install it as an
 
 ```sh
 ssh root@<opnsense>
-fetch -o /usr/local/etc/pkg/keys/netglance.pub  https://netglance.github.io/netglance/netglance.pub
-fetch -o /usr/local/etc/pkg/repos/netglance.conf https://netglance.github.io/netglance/netglance.conf
+fetch -o /usr/local/etc/pkg/keys/netglance.pub  https://cloudriftorg.github.io/netglance/netglance.pub
+fetch -o /usr/local/etc/pkg/repos/netglance.conf https://cloudriftorg.github.io/netglance/netglance.conf
 pkg update && pkg install -y os-netglance
 ```
 
@@ -75,7 +75,7 @@ pick interfaces, save. Done. The web UI opens on port 8473.
 ### Docker in 30 seconds
 
 ```sh
-git clone https://github.com/netglance/netglance && cd netglance
+git clone https://github.com/cloudriftorg/netglance && cd netglance
 docker compose up -d
 ```
 
@@ -111,7 +111,7 @@ configured from a first-run wizard.
 
 ## Package signing key
 
-The FreeBSD pkg repo published at `https://netglance.github.io/netglance/`
+The FreeBSD pkg repo published at `https://cloudriftorg.github.io/netglance/`
 is signed with an RSA-4096 keypair generated for v1.0.0. Verify the
 public key fingerprint after fetching it, in case GitHub Pages itself
 were ever compromised:

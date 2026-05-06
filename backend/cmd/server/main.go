@@ -11,11 +11,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/netglance/netglance/internal/api"
-	"github.com/netglance/netglance/internal/config"
-	"github.com/netglance/netglance/internal/scanner"
-	"github.com/netglance/netglance/internal/store"
-	"github.com/netglance/netglance/internal/webui"
+	"github.com/cloudriftorg/netglance/internal/api"
+	"github.com/cloudriftorg/netglance/internal/config"
+	"github.com/cloudriftorg/netglance/internal/scanner"
+	"github.com/cloudriftorg/netglance/internal/store"
+	"github.com/cloudriftorg/netglance/internal/webui"
 )
 
 // version is overridden at build time via -ldflags="-X main.version=..."

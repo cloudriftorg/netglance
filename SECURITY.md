@@ -16,7 +16,7 @@ security fixes. Older tags will not get backports.
 
 Instead, send a private report via GitHub's security advisory flow:
 
-➡ <https://github.com/netglance/netglance/security/advisories/new>
+➡ <https://github.com/cloudriftorg/netglance/security/advisories/new>
 
 Include:
 - a clear description of the issue and its impact,

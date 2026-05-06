@@ -1,4 +1,4 @@
-module github.com/netglance/netglance
+module github.com/cloudriftorg/netglance
 
 go 1.23
 

@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/netglance/netglance/internal/notify"
-	"github.com/netglance/netglance/internal/ouidb"
-	"github.com/netglance/netglance/internal/store"
+	"github.com/cloudriftorg/netglance/internal/notify"
+	"github.com/cloudriftorg/netglance/internal/ouidb"
+	"github.com/cloudriftorg/netglance/internal/store"
 )
 
 type Network struct {

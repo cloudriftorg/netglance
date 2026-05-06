@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/netglance/netglance/internal/scanner"
-	"github.com/netglance/netglance/internal/store"
+	"github.com/cloudriftorg/netglance/internal/scanner"
+	"github.com/cloudriftorg/netglance/internal/store"
 )
 
 func runScanHandler(st *store.Store) http.HandlerFunc {

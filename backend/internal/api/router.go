@@ -7,8 +7,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/netglance/netglance/internal/auth"
-	"github.com/netglance/netglance/internal/store"
+	"github.com/cloudriftorg/netglance/internal/auth"
+	"github.com/cloudriftorg/netglance/internal/store"
 )
 
 // RouterOptions carries cross-handler runtime flags. Currently just Managed,

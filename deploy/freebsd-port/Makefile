@@ -7,7 +7,7 @@ CATEGORIES=	net-mgmt
 
 MAINTAINER=	massimo.schiavo.p@gmail.com
 COMMENT=	LAN host discovery and inventory daemon
-WWW=		https://github.com/netglance/netglance
+WWW=		https://github.com/cloudriftorg/netglance
 
 LICENSE=	MIT
 LICENSE_FILE=	${WRKSRC}/LICENSE
@@ -20,7 +20,7 @@ RUN_DEPENDS=	arp-scan>=1.10:net-mgmt/arp-scan
 # need npm — only Go.
 USES=		go:modules
 
-GO_PKGNAME=	github.com/netglance/netglance
+GO_PKGNAME=	github.com/cloudriftorg/netglance
 GO_TARGET=	./backend/cmd/server:netglance
 GO_BUILDFLAGS=	-trimpath -ldflags="-s -w -X main.version=${DISTVERSION}"
 

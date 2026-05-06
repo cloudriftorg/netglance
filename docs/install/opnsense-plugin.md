@@ -19,11 +19,11 @@ the trusted public key and the conf that points pkg(8) at it.
 ```sh
 # 1. Trust the netglance signing key
 fetch -o /usr/local/etc/pkg/keys/netglance.pub \
-  https://netglance.github.io/netglance/netglance.pub
+  https://cloudriftorg.github.io/netglance/netglance.pub
 
 # 2. Drop the repo conf in
 fetch -o /usr/local/etc/pkg/repos/netglance.conf \
-  https://netglance.github.io/netglance/netglance.conf
+  https://cloudriftorg.github.io/netglance/netglance.conf
 
 pkg update
 ```
@@ -34,7 +34,7 @@ should look like:
 
 ```
 netglance: {
-  url: "https://netglance.github.io/netglance/${ABI}",
+  url: "https://cloudriftorg.github.io/netglance/${ABI}",
   signature_type: "pubkey",
   pubkey: "/usr/local/etc/pkg/keys/netglance.pub",
   enabled: yes
@@ -45,7 +45,7 @@ netglance: {
 
 GitHub Pages serves both the conf and the key, so a compromise of the
 hosting could swap them in lockstep. Confirm the fingerprint matches the
-one published in the repo's [README](https://github.com/netglance/netglance#package-signing-key)
+one published in the repo's [README](https://github.com/cloudriftorg/netglance#package-signing-key)
 and in the v1.0.0 tag commit message before trusting it:
 
 ```sh

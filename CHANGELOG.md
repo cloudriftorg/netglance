@@ -21,7 +21,7 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Install docs default to the signed flow (two `fetch` calls — key
   + conf — instead of one).
 
-[1.0.1]: https://github.com/netglance/netglance/releases/tag/v1.0.1
+[1.0.1]: https://github.com/cloudriftorg/netglance/releases/tag/v1.0.1
 
 ## [1.0.0] — 2026-05-03
 
@@ -168,5 +168,5 @@ First public release.
   Settings is schema-only
 - No password reset flow — recovering requires DB reset
 
-[1.0.0]: https://github.com/netglance/netglance/releases/tag/v1.0.0
-[0.1.0]: https://github.com/netglance/netglance/releases/tag/v0.1.0
+[1.0.0]: https://github.com/cloudriftorg/netglance/releases/tag/v1.0.0
+[0.1.0]: https://github.com/cloudriftorg/netglance/releases/tag/v0.1.0

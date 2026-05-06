@@ -130,7 +130,7 @@ jobs:
               "comment": "LAN host discovery and inventory daemon",
               "desc": "$NETGLANCE_DESC_JSON",
               "maintainer": "massimo.schiavo.p@gmail.com",
-              "www": "https://github.com/netglance/netglance",
+              "www": "https://github.com/cloudriftorg/netglance",
               "prefix": "/usr/local",
               "arch": "FreeBSD:14:amd64",
               "licenselogic": "single",
@@ -229,7 +229,7 @@ jobs:
 
             # Drop a ready-to-fetch repo config alongside the metadata so
             # users can `fetch -o /usr/local/etc/pkg/repos/netglance.conf
-            # https://netglance.github.io/netglance/netglance.conf`
+            # https://cloudriftorg.github.io/netglance/netglance.conf`
             # instead of crafting the file locally — friendlier than a
             # heredoc that breaks under csh. The signature_type stanza
             # is rewritten to match what the workflow actually produced
@@ -238,7 +238,7 @@ jobs:
             if [ "$SIGNED" = "1" ]; then
               cat > /tmp/repo/netglance.conf <<CONF
             netglance: {
-              url: "https://netglance.github.io/netglance/\${ABI}",
+              url: "https://cloudriftorg.github.io/netglance/\${ABI}",
               signature_type: "pubkey",
               pubkey: "/usr/local/etc/pkg/keys/netglance.pub",
               enabled: yes
@@ -247,7 +247,7 @@ jobs:
             else
               cat > /tmp/repo/netglance.conf <<CONF
             netglance: {
-              url: "https://netglance.github.io/netglance/\${ABI}",
+              url: "https://cloudriftorg.github.io/netglance/\${ABI}",
               signature_type: "none",
               enabled: yes
             }

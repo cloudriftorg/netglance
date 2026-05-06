@@ -11,7 +11,7 @@
 
 services:
   netglance:
-    image: ghcr.io/netglance/netglance:latest
+    image: ghcr.io/cloudriftorg/netglance:latest
     restart: unless-stopped
     network_mode: host
     volumes:

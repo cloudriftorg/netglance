@@ -6,8 +6,8 @@ get there with as little back-and-forth as possible.
 
 ## Reporting bugs and asking for features
 
-Use the [issue templates](https://github.com/netglance/netglance/issues/new/choose).
-For open-ended questions, please use [Discussions](https://github.com/netglance/netglance/discussions)
+Use the [issue templates](https://github.com/cloudriftorg/netglance/issues/new/choose).
+For open-ended questions, please use [Discussions](https://github.com/cloudriftorg/netglance/discussions)
 instead of issues.
 
 If you're reporting a security issue, do **not** open a public issue —

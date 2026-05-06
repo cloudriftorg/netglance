@@ -10,7 +10,7 @@ The simplest deployment. Works on any Linux host that has Docker.
 ## Run
 
 ```sh
-git clone https://github.com/netglance/netglance
+git clone https://github.com/cloudriftorg/netglance
 cd netglance
 docker compose up -d
 ```

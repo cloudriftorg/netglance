@@ -3,7 +3,7 @@ package api
 import (
 	"net/http"
 
-	"github.com/netglance/netglance/internal/config"
+	"github.com/cloudriftorg/netglance/internal/config"
 )
 
 // managedHandler exposes whether netglance is running under an external

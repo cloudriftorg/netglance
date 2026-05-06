@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/netglance/netglance/internal/store"
+	"github.com/cloudriftorg/netglance/internal/store"
 )
 
 func listHostsHandler(st *store.Store) http.HandlerFunc {
