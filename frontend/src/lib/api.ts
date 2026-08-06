@@ -48,6 +48,7 @@ export const api = {
   testSMTP: () => request<{ ok: boolean }>('/api/settings/test-smtp', { method: 'POST' }),
 
   listInterfaces: () => request<NetInterface[]>('/api/system/interfaces'),
+  scanTargets: () => request<ScanTarget[]>('/api/system/scan-targets'),
   managed: () => request<ManagedInfo>('/api/system/managed'),
 
   resetApp: (password: string) =>
@@ -106,6 +107,15 @@ export interface Scan {
   endedAt: number;
   hostsFound: number;
   error?: string;
+}
+
+// What the next scan will actually probe, resolved by the backend from the
+// selected interfaces. The VLAN comes off the interface, not the address.
+export interface ScanTarget {
+  iface: string;
+  cidr: string;
+  vlanId?: number;
+  name?: string;
 }
 
 export interface NetworkConfig {

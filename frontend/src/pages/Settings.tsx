@@ -1,9 +1,9 @@
-import { FormEvent, useEffect, useState } from 'react';
-import { api, Settings as SettingsT, NetworkConfig, NetInterface, ManagedInfo } from '../lib/api';
+import { Fragment, FormEvent, useEffect, useState } from 'react';
+import { api, Settings as SettingsT, NetInterface, ManagedInfo, ScanTarget } from '../lib/api';
 import { errMessage, useToast } from '../components/Toast';
 import IfacePicker from '../components/IfacePicker';
 import { useScrollPersist } from '../components/useScrollPersist';
-import { Info, Trash2 } from 'lucide-react';
+import { Info } from 'lucide-react';
 
 export default function SettingsPage() {
   const toast = useToast();
@@ -12,6 +12,7 @@ export default function SettingsPage() {
   const [ifaces, setIfaces] = useState<NetInterface[]>([]);
   const [resetOpen, setResetOpen] = useState(false);
   const [managed, setManaged] = useState<ManagedInfo>({ managed: false, fields: [] });
+  const [targets, setTargets] = useState<ScanTarget[]>([]);
   const scrollRef = useScrollPersist<HTMLDivElement>('settings');
 
   useEffect(() => {
@@ -40,6 +41,9 @@ export default function SettingsPage() {
     api.managed().then(setManaged).catch(() => {
       /* non-fatal: assume not managed */
     });
+    api.scanTargets().then(setTargets).catch(() => {
+      /* non-fatal: the aliases section just stays empty */
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -50,11 +54,15 @@ export default function SettingsPage() {
   function update<K extends keyof SettingsT>(key: K, value: SettingsT[K]) {
     setS((cur) => (cur ? { ...cur, [key]: value } : cur));
   }
-  function updateNet(idx: number, patch: Partial<NetworkConfig>) {
+  // Aliases are stored in the same `networks` list the scanner already reads,
+  // keyed by CIDR: an empty alias drops the row rather than saving a blank.
+  function aliasFor(cidr: string) {
+    return s?.networks.find((n) => n.cidr === cidr)?.name ?? '';
+  }
+  function setAlias(t: ScanTarget, name: string) {
     if (!s) return;
-    const next = s.networks.slice();
-    next[idx] = { ...next[idx], ...patch };
-    update('networks', next);
+    const rest = s.networks.filter((n) => n.cidr !== t.cidr);
+    update('networks', name.trim() ? [...rest, { cidr: t.cidr, name, vlanId: t.vlanId }] : rest);
   }
 
   async function save() {
@@ -160,58 +168,38 @@ export default function SettingsPage() {
 
         <Section
           title="Networks"
-          desc="One row per CIDR you want scanned. VLAN ID is optional and only affects the badge."
+          desc="What the scan covers, taken from the interfaces above. Give each one a name to see it on the hosts."
         >
-          {s.networks.length === 0 && (
-            <p className="text-sm text-slate-500">No networks configured. Add one below.</p>
+          {targets.length === 0 && (
+            <p className="text-sm text-slate-500">
+              No networks to scan yet — pick the interfaces first.
+            </p>
           )}
-          {s.networks.map((n, i) => (
-            <div key={i} className="grid grid-cols-12 gap-2">
-              {/* JSX order matches visual + tab order: IP → VLAN → Name → ×. */}
-              <input
-                className="input col-span-11 sm:col-span-3"
-                placeholder="192.168.1.0/24"
-                value={n.cidr}
-                disabled={isManaged('networks')}
-                onChange={(e) => updateNet(i, { cidr: e.target.value })}
-              />
-              <input
-                className="input col-span-4 col-start-1 row-start-2 sm:col-span-2 sm:col-start-auto sm:row-start-auto"
-                inputMode="numeric"
-                placeholder="VLAN"
-                value={n.vlanId ?? ''}
-                disabled={isManaged('networks')}
-                onChange={(e) =>
-                  updateNet(i, {
-                    vlanId: e.target.value ? Number(e.target.value.replace(/\D/g, '')) : undefined,
-                  })
-                }
-              />
-              <input
-                className="input col-span-8 row-start-2 sm:col-span-6 sm:row-start-auto"
-                placeholder="Name (e.g. trusted)"
-                value={n.name}
-                disabled={isManaged('networks')}
-                onChange={(e) => updateNet(i, { name: e.target.value })}
-              />
-              <button
-                className="col-span-1 col-start-12 row-start-1 inline-flex h-9 w-9 items-center justify-center justify-self-center rounded-full text-slate-400 transition hover:bg-red-100 hover:text-red-600 disabled:opacity-40 dark:hover:bg-red-900 dark:hover:text-red-300 sm:row-start-auto"
-                disabled={isManaged('networks')}
-                onClick={() => update('networks', s.networks.filter((_, j) => j !== i))}
-                aria-label="Remove network"
-                title="Remove network"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </div>
-          ))}
-          <button
-            className="btn-secondary text-sm disabled:opacity-50"
-            disabled={isManaged('networks')}
-            onClick={() => update('networks', [...s.networks, { name: '', cidr: '' }])}
-          >
-            + Add network
-          </button>
+          {/* One grid for every row, not one per row: the first column sizes
+              itself to the widest label, so the inputs line up without a gap
+              between them and the text. Capped in height so a firewall with a
+              dozen VLANs doesn't push the rest of the page out of reach. */}
+          <div className="grid max-h-72 grid-cols-1 gap-x-4 gap-y-2 overflow-y-auto sm:grid-cols-[auto_1fr] sm:items-center">
+            {targets.map((t) => (
+              <Fragment key={`${t.iface}|${t.cidr}`}>
+                <div className="flex items-center gap-2">
+                  {t.vlanId !== undefined && (
+                    <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+                      VLAN {t.vlanId}
+                    </span>
+                  )}
+                  <span className="font-mono text-sm">{t.cidr}</span>
+                  <span className="text-xs text-slate-500">{t.iface}</span>
+                </div>
+                <input
+                  className="input"
+                  placeholder="Name (e.g. trusted)"
+                  value={aliasFor(t.cidr)}
+                  onChange={(e) => setAlias(t, e.target.value)}
+                />
+              </Fragment>
+            ))}
+          </div>
         </Section>
 
         <Section

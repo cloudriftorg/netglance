@@ -1,11 +1,10 @@
 #!/bin/sh
 
-# Ensure the netglance state directory exists with correct ownership.
-# The netglance pkg already creates /var/db/netglance, but we re-assert here
-# in case the pkg was upgraded or the directory was removed.
+# Ensure the netglance directories exist before the daemon (re)starts —
+# install.sh creates them, this re-asserts them in case they were removed.
+# The daemon runs as root (arp-scan needs /dev/bpf*), so no chown here.
 
 mkdir -p /var/db/netglance
-chown netglance:netglance /var/db/netglance
 chmod 750 /var/db/netglance
 
 mkdir -p /usr/local/etc/netglance

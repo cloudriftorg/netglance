@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -205,6 +208,82 @@ type scanTarget struct {
 	vlan  *int
 }
 
+// Target is one interface+CIDR the scanner will probe, with the VLAN and name
+// it will tag hosts with. Exported so the UI can show what is actually being
+// scanned instead of asking the user to describe their own network back to it.
+type Target struct {
+	Iface  string `json:"iface"`
+	CIDR   string `json:"cidr"`
+	VLANID *int   `json:"vlanId,omitempty"`
+	Name   string `json:"name,omitempty"`
+}
+
+// Targets resolves the current settings into the list of things that will be
+// probed on the next scan. Same code path the scanner itself uses, so what the
+// UI shows can't drift from what actually happens.
+func Targets(s Settings) []Target {
+	logger := slog.Default().With("comp", "scanner")
+	found := buildScanTargets(s, ifaceAllowSet(s.ScanIfaces), logger)
+	out := make([]Target, 0, len(found))
+	for _, t := range found {
+		name := t.name
+		if name == t.iface {
+			// buildScanTargets falls back to the interface name as a label;
+			// that's not a user-chosen name, so report it as unnamed.
+			name = ""
+		}
+		out = append(out, Target{Iface: t.iface, CIDR: t.cidr, VLANID: t.vlan, Name: name})
+	}
+	return sortTargets(out)
+}
+
+// sortTargets puts the list in VLAN order — untagged networks last, ties broken
+// by CIDR. buildScanTargets walks the interface allow-list, which is a map, so
+// without this the order is random per call and the UI list reshuffles.
+func sortTargets(in []Target) []Target {
+	sort.Slice(in, func(i, j int) bool {
+		a, b := in[i], in[j]
+		switch {
+		case a.VLANID != nil && b.VLANID != nil && *a.VLANID != *b.VLANID:
+			return *a.VLANID < *b.VLANID
+		case (a.VLANID == nil) != (b.VLANID == nil):
+			return a.VLANID != nil
+		}
+		return a.CIDR < b.CIDR
+	})
+	return in
+}
+
+// ifaceVLANs maps interface name → 802.1Q tag, from the environment.
+// ponytail: process-global and set once in main() before the scan loop starts,
+// so it needs no lock; thread it through Settings if it ever becomes editable
+// at runtime.
+var ifaceVLANs map[string]int
+
+// SetIfaceVLANs installs the interface → VLAN tag map for this process.
+func SetIfaceVLANs(m map[string]int) { ifaceVLANs = m }
+
+// vlanIfaceName matches the conventional device names that carry their own tag
+// — igc1_vlan20, eth0.20, vlan0.20. A bare "vlanNN" is deliberately excluded:
+// on OPNsense `vlan02` is the second VLAN device, not tag 2, so reading it as a
+// tag would mislabel every host on that interface.
+var vlanIfaceName = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9]*(?:_vlan|\.)([0-9]{1,4})$`)
+
+// vlanForIface resolves the VLAN of the interface a reply arrived on: the
+// supplied map first, then the tag encoded in the device name. nil when
+// neither knows, leaving the networks table as the fallback.
+func vlanForIface(name string) *int {
+	if v, ok := ifaceVLANs[name]; ok {
+		return &v
+	}
+	if m := vlanIfaceName.FindStringSubmatch(name); m != nil {
+		if n, err := strconv.Atoi(m[1]); err == nil && n >= 1 && n <= 4094 {
+			return &n
+		}
+	}
+	return nil
+}
+
 func ifaceAllowSet(list []string) map[string]bool {
 	if len(list) == 0 {
 		return nil
@@ -239,7 +318,13 @@ func buildScanTargets(s Settings, allow map[string]bool, logger *slog.Logger) []
 			continue
 		}
 		used[key] = true
-		out = append(out, scanTarget{iface: iface, cidr: n.CIDR, name: n.Name, vlan: n.VLANID})
+		// The interface wins over the network's configured VLAN: it's the
+		// physical truth, the table is a guess keyed on address ranges.
+		vlan := vlanForIface(iface)
+		if vlan == nil {
+			vlan = n.VLANID
+		}
+		out = append(out, scanTarget{iface: iface, cidr: n.CIDR, name: n.Name, vlan: vlan})
 	}
 
 	// For every allowed iface that wasn't covered by a configured Network,
@@ -254,11 +339,13 @@ func buildScanTargets(s Settings, allow map[string]bool, logger *slog.Logger) []
 			}
 			used[key] = true
 			label := name
-			var vlan *int
+			vlan := vlanForIface(name)
 			for _, n := range s.Networks {
 				if n.CIDR == c {
 					label = n.Name
-					vlan = n.VLANID
+					if vlan == nil {
+						vlan = n.VLANID
+					}
 					break
 				}
 			}

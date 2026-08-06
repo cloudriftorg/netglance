@@ -1,0 +1,23 @@
+[Unit]
+Description=netglance — LAN host discovery
+Documentation=https://github.com/cloudriftorg/netglance
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# root because arp-scan needs raw sockets. To drop that, give the arp-scan
+# binary CAP_NET_RAW (setcap cap_net_raw+ep /usr/bin/arp-scan) and run this
+# unit as an unprivileged user that owns NETGLANCE_DATA_DIR.
+User=root
+Environment=NETGLANCE_DATA_DIR=/var/lib/netglance
+# Interfaces, port and scan schedule are set from netglance's own web UI on a
+# native install. Uncomment to pin them here instead:
+#Environment=NETGLANCE_BIND=:8473
+#Environment=NETGLANCE_SCAN_IFACES=eth0,eth0.20
+#Environment=NETGLANCE_IFACE_VLANS=eth0.20=20
+ExecStart=/usr/local/bin/netglance
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

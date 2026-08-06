@@ -36,6 +36,9 @@ func main() {
 	slog.SetDefault(logger)
 
 	cfg := config.Load()
+	// Before any scan runs: hosts get tagged with the VLAN of the interface
+	// they answered on, and this is where that map comes from.
+	scanner.SetIfaceVLANs(cfg.IfaceVLANs)
 	if err := os.MkdirAll(cfg.DataDir, 0o755); err != nil {
 		slog.Error("create data dir", "err", err)
 		os.Exit(1)

@@ -1,165 +1,142 @@
 # Netglance
 
-[![Build & Publish](https://github.com/cloudriftorg/netglance/actions/workflows/build.yml/badge.svg)](https://github.com/cloudriftorg/netglance/actions/workflows/build.yml)
-[![Latest release](https://img.shields.io/github/v/release/netglance/netglance?sort=semver)](https://github.com/cloudriftorg/netglance/releases)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+**Discover, inventory and watch every device on your LAN — from OPNsense.**
 
-> ⚠️ **Early development.** Netglance is under active development —
-> the OPNsense plugin in particular has not been hardened on a wide
-> range of hosts yet. Expect rough edges, breaking config changes
-> between minor versions, and don't deploy on a production firewall
-> you can't recover from a snapshot. Bug reports very welcome.
+Netglance scans configured CIDRs over ARP (`arp-scan`), keeps a SQLite history of when each MAC was first/last seen and on which IP, and serves a mobile-friendly web UI on its own port (default `8473`). It installs as an OPNsense plugin: a `Services → Netglance` tab, wired into OPNsense's service lifecycle — start at boot, restart on save, status in the dashboard.
 
-> 🧪 **Vibe-coded.** Netglance was built largely through vibe coding
-> with an LLM in the loop — designed and shipped quickly, not yet
-> code-reviewed by humans line by line. Treat the codebase
-> accordingly: read before you trust, especially anything that runs
-> on a firewall.
+This is a **private plugin**, not published to the official OPNsense store. You build one self-contained installer, copy it to your firewall, and run it there. The daemon is a plain Go binary, so it also runs on any Linux or FreeBSD host — see [Native install](#native-install) below.
 
-**Discover, inventory and watch every device on your LAN.** Netglance scans
-configured CIDRs over ARP, keeps a SQLite history of when each MAC was
-first/last seen and on which IP, and ships a mobile-friendly web UI on
-its own port. Per-VLAN aware, lightweight (single Go binary, ~30 MB), and
-designed to run on the firewall itself — most users install it as an
-**OPNsense plugin** that adds a `Services → Netglance` tab.
+> ⚠️ Vibe-coded and not hardened. Don't put it on a production firewall you can't restore from a snapshot.
 
-| Hosts page | Settings page |
-|---|---|
-| ![Hosts page](docs/img/host_screen.png) | ![Settings page](docs/img/settings.png) |
-
-| OPNsense plugin |
-|---|
-| ![Services > Netglance](docs/img/opnsense_plugin.png) |
+| Hosts page | Settings page | OPNsense plugin |
+|---|---|---|
+| ![Hosts page](docs/img/host_screen.png) | ![Settings page](docs/img/settings.png) | ![Services > Netglance](docs/img/opnsense_plugin.png) |
 
 ## Features
 
-- 🔍 **ARP-based discovery** (`arp-scan`) — fast, cheap, no agents
-- 🏷️ **Multi-VLAN data model** — tag devices by VLAN, scan multiple subnets
-- 📈 **Online/offline history** — per-host event timeline + uptime chart
-- 🔔 **Email notifications** (SMTP plain / STARTTLS / SMTPS) on new device,
-   offline, back-online
+- 🔍 ARP-based discovery — fast, cheap, no agents
+- 🏷️ Multi-VLAN data model — tag devices by VLAN, scan multiple subnets
+- 📈 Online/offline history — per-host event timeline + uptime chart
+- 🔔 Email notifications (SMTP plain / STARTTLS / SMTPS) on new device, offline, back-online
 - ⏱️ Configurable auto-scan + manual trigger
-- 📱 **Mobile-first PWA**, installable on iOS/Android
+- 📱 Mobile-first PWA, installable on iOS/Android
 - 🌓 Light / dark / system theme
 - 🔐 Local admin login, HttpOnly session cookie, proxy-aware
-- ⚙️ Three install paths: **OPNsense plugin**, native Linux/FreeBSD, Docker
 
 ## Install
 
-| Target | Guide |
+**1. Build** (needs `go` and `node`/`npm` here, nothing on the firewall):
+
+```sh
+./build.sh              # → dist/installer.sh  (~5 MB, freebsd/amd64)
+./build.sh arm64        # for an ARM box
+```
+
+`dist/installer.sh` is committed, so a fresh clone already has a ready-to-run build and you only need `build.sh` when you change something. Rebuild before committing — and keep in mind each committed build adds ~6 MB to the repo forever, so commit the artifact when you're snapshotting a version that works, not on every experiment.
+
+**2. Copy `dist/installer.sh` to the firewall** — scp, USB stick, GUI upload, whatever. `/tmp` is fine.
+
+**3. Run it there as root:**
+
+```sh
+sh /tmp/installer.sh
+```
+
+It unpacks itself, installs `arp-scan` if missing, drops the files in place, reloads configd and php-fpm, cleans up. Nothing is downloaded or compiled on the firewall. Re-run the same file to update — `/var/db/netglance` is preserved.
+
+Then hard-refresh the OPNsense GUI. Reloading configd and php-fpm picks up the plugin's menu entry, MVC classes and ACL most of the time, not always — if `Services → Netglance` doesn't show up, reboot the firewall.
+
+`arp-scan` travels inside the installer: OPNsense's repo doesn't carry it, so `build.sh` pulls FreeBSD's package once (cached in `dist/deps/`) and the installer `pkg add`s it from disk. It pulls in nothing else — `libc` and `libpcap` are in the base system.
+
+**4. Configure** in **Services → Netglance**: listen port, the interfaces to probe, then **Enable** and **Save**. The networks themselves (one row per CIDR, VLAN ID optional — it only drives the badge) are configured later, in netglance's own UI.
+
+**Open Netglance UI** takes you to the web UI, which has its own admin password set on first launch — separate from your OPNsense login. Since the plugin isn't a `pkg`, it does not appear under System → Firmware → Plugins.
+
+### What lands on the box
+
+| Path | What |
 |---|---|
-| **OPNsense plugin** *(recommended for OPNsense users)* | [docs/install/opnsense-plugin.md](docs/install/opnsense-plugin.md) |
-| Linux native (systemd) | [docs/install/linux-native.md](docs/install/linux-native.md) |
-| FreeBSD native | [docs/install/freebsd-native.md](docs/install/freebsd-native.md) |
-| Docker | [docs/install/docker.md](docs/install/docker.md) |
+| `/usr/local/sbin/netglance` | the daemon (static binary, UI embedded) |
+| `/usr/local/bin/arp-scan` | from the bundled FreeBSD package, if not already there |
+| `/usr/local/etc/rc.d/netglance` | rc script |
+| `/usr/local/etc/inc/plugins.inc.d/netglance.inc` | service registration |
+| `/usr/local/etc/rc.syshook.d/start/50-netglance` | start at boot |
+| `/usr/local/opnsense/mvc/.../Netglance/` | GUI page, model, ACL, menu |
+| `/usr/local/opnsense/service/conf/actions.d/actions_netglance.conf` | configd actions |
+| `/usr/local/etc/netglance/netglance.env` | rendered from your settings on every Save |
+| `/var/db/netglance/` | SQLite database |
 
-### OPNsense in 4 commands
+No existing OPNsense file is modified. `/conf/config.xml` gains an `<OPNsense><netglance>` section, but only once you hit Save.
 
-```sh
-ssh root@<opnsense>
-fetch -o /usr/local/etc/pkg/keys/netglance.pub  https://cloudriftorg.github.io/netglance/netglance.pub
-fetch -o /usr/local/etc/pkg/repos/netglance.conf https://cloudriftorg.github.io/netglance/netglance.conf
-pkg update && pkg install -y os-netglance
-```
+## Native install
 
-> Verify the pubkey before trusting it — see [Package signing key](#package-signing-key) below.
-
-Then go to **Services → Netglance** in your OPNsense GUI, enable the plugin,
-pick interfaces, save. Done. The web UI opens on port 8473.
-
-> ⚠️ **Public release status**: the OPNsense plugin path requires the
-> repo's `gh-pages` branch to be live with a current build. See
-> [docs/install/opnsense-plugin.md](docs/install/opnsense-plugin.md) for
-> the full setup including signature verification.
-
-### Docker in 30 seconds
+Outside OPNsense there's no plugin, no GUI page and no config to inherit: the daemon runs on its own and everything is set from its web UI.
 
 ```sh
-git clone https://github.com/cloudriftorg/netglance && cd netglance
-docker compose up -d
+./build-native.sh                    # → dist/netglance-linux-amd64.tar.gz
+./build-native.sh linux arm64
+./build-native.sh freebsd amd64
 ```
 
-UI on `http://localhost:8473`. Note: `arp-scan` needs `network_mode: host`,
-which doesn't fully work on Docker Desktop (macOS/Windows) — for real LAN
-scanning use a Linux host or one of the native install paths.
+Copy the tarball over, then on the host:
 
-## How it compares
+```sh
+sudo apt install arp-scan            # pkg install arp-scan on FreeBSD
+tar xzf netglance-linux-amd64.tar.gz && cd netglance-linux-amd64
+sudo install -m 755 netglance /usr/local/bin/netglance
+sudo install -m 644 netglance.service /etc/systemd/system/netglance.service
+sudo mkdir -p /var/lib/netglance
+sudo systemctl enable --now netglance
+```
 
-| | netglance | [WatchYourLAN](https://github.com/aceberg/WatchYourLAN) | [NetAlertX](https://github.com/jokob-sk/NetAlertX) | [Pi.Alert](https://github.com/leiweibau/Pi.Alert) |
-|---|:---:|:---:|:---:|:---:|
-| ARP-based discovery | ✅ | ✅ | ✅ | ✅ |
-| Native OPNsense plugin | ✅ | ❌ | ❌ | ❌ |
-| Multi-VLAN, per-device tags | ✅ | partial | ✅ | partial |
-| Mobile-first PWA | ✅ | ❌ | ❌ | ❌ |
-| Single binary install | ✅ | ✅ | ❌ (PHP+Python+nginx) | ❌ (PHP) |
-| Email notifications | ✅ | ❌ | ✅ | ✅ |
+Open `http://<host>:8473`, set the admin password, and pick the interfaces to scan — that step is part of the first-run wizard here, since no orchestrator supplies them.
 
-Netglance is closest in spirit to WatchYourLAN — same minimalism — but
-adds the OPNsense integration, a richer per-host history view and a UI
-designed to be useful on a phone.
+Two differences from the OPNsense path. `arp-scan` isn't bundled: a normal distro is one `apt`/`pkg` away from it, and pinning a version in the tarball would only get in the way. And VLAN tags are only recognised when the device name carries them (`eth0.20`, `enp1s0.30`) — nothing here knows your VLAN layout the way the firewall does. Set `NETGLANCE_IFACE_VLANS=iface=tag,…` in the unit file to fill that in.
+
+The unit runs as root because arp-scan needs raw sockets; the file documents how to drop that with `CAP_NET_RAW` if you'd rather.
+
+## Uninstall
+
+```sh
+sh /tmp/installer.sh uninstall
+```
+
+Stops the daemon and removes the binary, every plugin file, the state directory, the log, and the `<netglance>` section of `config.xml` — settings return to their pre-install state. `arp-scan` goes only if the installer was the one that pulled it in. OPNsense's own config history in `/conf/backup/` is left alone on purpose.
+
+Any build works for this: the uninstall list is derived from the installer's own payload, so you can rebuild one instead of keeping the original.
+
+## Repository layout
+
+```
+build.sh                     builds dist/installer.sh — the OPNsense plugin
+build-native.sh              builds dist/netglance-<os>-<arch>.tar.gz — plain host
+build-ui.sh                  builds the React UI into the Go embed dir; used by both
+backend/                     Go daemon: API, ARP scanner, SQLite store, SMTP
+frontend/                    React + Vite UI, embedded into the binary via //go:embed
+deploy/opnsense-plugin/
+  installer.sh               installer logic; build.sh appends the payload to it
+  src/                       shipped verbatim to /usr/local on the firewall
+deploy/native/               systemd unit for the non-OPNsense install
+docs/img/                    screenshots
+```
+
+`src/` mirrors the target layout, so the install list and the uninstall list both come from it and can't drift apart.
+
+## Development
+
+```sh
+cd frontend && npm run dev          # UI with HMR, proxies /api to $VITE_BACKEND_URL
+cd backend && go test ./...
+cd backend && go run ./cmd/server   # local daemon on :8473 (arp-scan needs root)
+```
+
+PHP/Volt/configd changes only run on OPNsense: rebuild, copy, re-run the installer — against a throwaway VM, not the firewall you depend on.
 
 ## Configuration
 
-When installed as an OPNsense plugin, the listen port, scan interfaces,
-networks (CIDR + VLAN) and scan interval are managed from
-**Services → Netglance** and stored in OPNsense's `config.xml`. The rest
-(SMTP, notification toggles, per-host names/notes/watch-flags, admin
-password) lives inside netglance and is configured from the web UI.
+Listen port, scan interfaces and networks live in OPNsense's `config.xml` and are rendered into `/usr/local/etc/netglance/netglance.env` on every Save. Everything else (SMTP, notification toggles, per-host names/notes/watch flags, admin password) lives in netglance's own DB, configured from its web UI.
 
-In the other install modes, **everything** lives inside netglance and is
-configured from a first-run wizard.
-
-## Package signing key
-
-The FreeBSD pkg repo published at `https://cloudriftorg.github.io/netglance/`
-is signed with an RSA-4096 keypair generated for v1.0.0. Verify the
-public key fingerprint after fetching it, in case GitHub Pages itself
-were ever compromised:
-
-```
-SHA256 (DER): 479df3c427e8fd354e5a88839d80fdbc102cfea882dbbca9bfd69f2e2583bfa4
-```
-
-Compute locally to compare:
-
-```sh
-openssl rsa -in /usr/local/etc/pkg/keys/netglance.pub -pubin -outform DER \
-  | sha256sum
-```
-
-If the two strings don't match, **do not** run `pkg install` — open an issue.
-
-## Reverse proxy
-
-```caddyfile
-netglance.example.com {
-    reverse_proxy <netglance-host>:8473
-}
-```
-
-Netglance honors `X-Forwarded-Proto: https` and flips the session cookie's
-`Secure` flag accordingly.
-
-## Local development
-
-```sh
-make local         # full app in Docker on http://localhost:8473
-make ui            # frontend HMR (proxies /api to a running backend)
-make build         # static binary ./netglance (frontend embedded)
-make help          # full target list
-```
-
-For OPNsense plugin development (PHP/Volt/configd), you need an OPNsense VM —
-see [dev/opnsense-vm/README.md](dev/opnsense-vm/README.md).
-
-> **macOS Docker note**: the container only sees Docker Desktop's internal
-> network. UI, settings, auth, migrations, vendor lookup and the scan loop
-> are all testable; real LAN/VLAN scanning needs a Linux host or a VM.
-
-## Contributing
-
-Issues and pull requests welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
-For security disclosures see [SECURITY.md](SECURITY.md).
+Behind a reverse proxy, netglance honors `X-Forwarded-Proto: https` and flips the session cookie's `Secure` flag accordingly.
 
 ## License
 

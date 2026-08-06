@@ -1,8 +1,0 @@
-netglance is a small daemon that discovers, inventories, and tracks every
-device on your LAN. It scans configured CIDRs over ARP (via arp-scan), keeps
-a SQLite history of when each MAC was first/last seen and on which IP, and
-ships an embedded mobile-friendly web UI on port 8473.
-
-Designed to run on a FreeBSD/OPNsense box: the os-netglance OPNsense plugin
-provides a configuration tab and lifecycle integration. It also runs fine
-standalone as a systemd service on Linux or as a Docker container.

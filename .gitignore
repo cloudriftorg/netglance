@@ -4,7 +4,12 @@ backend/netglance
 frontend/dist/
 frontend/node_modules/
 frontend/tsconfig.tsbuildinfo
-# Frontend build artifacts copied here by `make build` / Dockerfile.
+# dist/ is build output, except the installer itself: it's committed so a
+# clone always carries a ready-to-run build. dist/deps/ (the cached arp-scan
+# package) stays out — build.sh refetches it.
+/dist/*
+!/dist/installer.sh
+# Frontend build artifacts copied here by install.sh.
 # Keep the placeholder index.html in git so //go:embed has files to scan
 # in CI (go vet / go test) when no frontend build has run.
 backend/internal/webui/dist/*

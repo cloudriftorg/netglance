@@ -31,6 +31,14 @@ type Config struct {
 	// scanner loop reads them. Pointers distinguish "absent" from "set to
 	// the zero value".
 	Bootstrap BootstrapOverrides
+
+	// IfaceVLANs maps an interface name to its 802.1Q tag. The interface a
+	// host answers ARP on *is* its VLAN, which beats inferring one from the
+	// IP: it holds no matter how the address space is laid out. Whoever runs
+	// netglance supplies the map (the OPNsense plugin renders it from the
+	// firewall's own VLAN config); empty means "fall back to the networks
+	// table", which is what a plain host install does.
+	IfaceVLANs map[string]int
 }
 
 type BootstrapOverrides struct {
@@ -80,6 +88,7 @@ func Load() Config {
 		nets := parseNetworks(v)
 		c.Bootstrap.Networks = &nets
 	}
+	c.IfaceVLANs = ParseIfaceVLANs(os.Getenv("NETGLANCE_IFACE_VLANS"))
 
 	// Compose Bind from BindAddress + HTTPPort if either is set via env.
 	if c.Bootstrap.BindAddress != nil || c.Bootstrap.HTTPPort != nil {
@@ -126,6 +135,30 @@ func parseNetworks(s string) []NetworkOverride {
 			n.Name = strings.TrimSpace(parts[2])
 		}
 		out = append(out, n)
+	}
+	return out
+}
+
+// ParseIfaceVLANs decodes the NETGLANCE_IFACE_VLANS env var format:
+//
+//	iface=tag,iface=tag
+//
+// Example: "vlan02=10,vlan03=20,igc1_vlan90=90". Malformed pairs and
+// out-of-range tags are dropped rather than failing the whole map — a typo in
+// one entry shouldn't cost you the VLAN labelling of every other interface.
+func ParseIfaceVLANs(s string) map[string]int {
+	out := map[string]int{}
+	for _, raw := range strings.Split(s, ",") {
+		name, tag, ok := strings.Cut(strings.TrimSpace(raw), "=")
+		if !ok {
+			continue
+		}
+		name = strings.TrimSpace(name)
+		n, err := strconv.Atoi(strings.TrimSpace(tag))
+		if name == "" || err != nil || n < 1 || n > 4094 {
+			continue
+		}
+		out[name] = n
 	}
 	return out
 }

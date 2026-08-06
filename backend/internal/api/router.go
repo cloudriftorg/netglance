@@ -58,6 +58,7 @@ func NewRouter(st *store.Store, webuiHandler http.Handler, opts RouterOptions) h
 			r.Get("/scan/status", scanStatusHandler(st))
 
 			r.Get("/system/interfaces", listInterfacesHandler())
+			r.Get("/system/scan-targets", scanTargetsHandler(st))
 
 			r.Get("/settings", getSettingsHandler(st))
 			r.Put("/settings", putSettingsHandler(st, opts.Managed))

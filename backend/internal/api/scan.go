@@ -32,15 +32,7 @@ func kickScan(st *store.Store) bool {
 		return false
 	}
 	s := loadSettings(st)
-	nets := make([]scanner.Network, 0, len(s.Networks))
-	for _, n := range s.Networks {
-		vid := n.VLANID
-		var v *int
-		if vid != 0 {
-			v = &vid
-		}
-		nets = append(nets, scanner.Network{Name: n.Name, CIDR: n.CIDR, VLANID: v})
-	}
+	nets := toScannerNetworks(s)
 	var notifyCfg *scanner.NotifyConfig
 	if s.SMTP != nil && s.SMTP.Host != "" && len(s.SMTP.Recipients) > 0 {
 		notifyCfg = &scanner.NotifyConfig{
@@ -115,5 +107,35 @@ func scanStatusHandler(st *store.Store) http.HandlerFunc {
 			resp["nextScanInSeconds"] = remaining
 		}
 		writeJSON(w, http.StatusOK, resp)
+	}
+}
+
+// toScannerNetworks projects the stored settings into the scanner's shape.
+// Shared by the manual-scan trigger and the scan-targets endpoint so both see
+// the same networks.
+func toScannerNetworks(s settingsBundle) []scanner.Network {
+	out := make([]scanner.Network, 0, len(s.Networks))
+	for _, n := range s.Networks {
+		var v *int
+		if n.VLANID != 0 {
+			vid := n.VLANID
+			v = &vid
+		}
+		out = append(out, scanner.Network{Name: n.Name, CIDR: n.CIDR, VLANID: v})
+	}
+	return out
+}
+
+// scanTargetsHandler reports what the next scan will actually probe: one entry
+// per interface+CIDR, with the VLAN read off the interface. The Settings page
+// renders it so naming a network is a matter of labelling what's there, not
+// typing CIDRs from memory.
+func scanTargetsHandler(st *store.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		s := loadSettings(st)
+		writeJSON(w, http.StatusOK, scanner.Targets(scanner.Settings{
+			Networks:   toScannerNetworks(s),
+			ScanIfaces: s.ScanIfaces,
+		}))
 	}
 }
