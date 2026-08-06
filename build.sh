@@ -86,7 +86,13 @@ echo "__PAYLOAD_BELOW__" >> "$OUT"
 # --no-mac-metadata --no-xattrs: macOS tar would otherwise record
 # com.apple.provenance on every entry, and FreeBSD's tar fails to restore it —
 # which under `set -e` killed the installer right after unpacking.
-tar --no-mac-metadata --no-xattrs -czf - -C "$STAGE" netglance arp-scan.pkg src >> "$OUT"
+# Byte-identical rebuilds when nothing changed: tar records each entry's mtime
+# and ownership, and the staged files are freshly created on every run. Without
+# this, every build shows up as a git diff on the committed installer.
+find "$STAGE" -exec touch -t 200001010000 {} +
+# gzip -n drops the timestamp it would otherwise stamp into the stream.
+tar --no-mac-metadata --no-xattrs --uid 0 --gid 0 --uname root --gname root -cf - -C "$STAGE" netglance arp-scan.pkg src \
+    | gzip -n -9 >> "$OUT"
 chmod +x "$OUT"
 
 echo "✓ $OUT  ($(du -h "$OUT" | cut -f1), netglance $VERSION, freebsd/$GOARCH)"

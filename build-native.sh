@@ -44,7 +44,11 @@ cp deploy/native/netglance.service "$STAGE/$NAME/"
 
 mkdir -p dist
 OUT="dist/$NAME.tar.gz"
-tar --no-mac-metadata --no-xattrs -czf "$OUT" -C "$STAGE" "$NAME"
+# Byte-identical rebuilds when nothing changed: tar records each entry's mtime
+# and ownership, and the staged files are freshly created on every run. Without
+# this, every build shows up as a git diff on the committed installer.
+find "$STAGE" -exec touch -t 200001010000 {} +
+tar --no-mac-metadata --no-xattrs --uid 0 --gid 0 --uname root --gname root -cf - -C "$STAGE" "$NAME" | gzip -n -9 > "$OUT"
 
 echo "✓ $OUT  ($(du -h "$OUT" | cut -f1), netglance $VERSION)"
 echo

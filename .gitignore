@@ -9,11 +9,12 @@ frontend/tsconfig.tsbuildinfo
 # package) stays out — build.sh refetches it.
 /dist/*
 !/dist/installer.sh
-# Frontend build artifacts copied here by install.sh.
-# Keep the placeholder index.html in git so //go:embed has files to scan
-# in CI (go vet / go test) when no frontend build has run.
+# The frontend build lands here. Only .gitkeep is tracked: `//go:embed all:dist`
+# needs the directory to be non-empty to compile on a fresh clone, and an empty
+# file is the one thing a build never rewrites — so building doesn't leave a
+# modified file behind every time.
 backend/internal/webui/dist/*
-!backend/internal/webui/dist/index.html
+!backend/internal/webui/dist/.gitkeep
 
 # Dev data
 data/

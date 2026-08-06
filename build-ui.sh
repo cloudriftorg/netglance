@@ -13,3 +13,5 @@ echo "==> building frontend"
 rm -rf backend/internal/webui/dist
 mkdir -p backend/internal/webui/dist
 cp -R frontend/dist/. backend/internal/webui/dist/
+# Tracked, and the only file in here git knows about — see .gitignore.
+touch backend/internal/webui/dist/.gitkeep
