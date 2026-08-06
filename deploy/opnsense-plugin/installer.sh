@@ -57,6 +57,21 @@ reload_gui() {
     fi
 }
 
+# Remove the plugin's own files — whole Netglance/ directories rather than just
+# the files this payload lists, so a file dropped in a later version can't
+# survive as an orphan the uninstall list would no longer mention. The .inc goes
+# first: the GUI loads it on every request and it instantiates the model files
+# removed right after. Never touches /var/db/netglance or config.xml.
+remove_plugin_files() {
+    for f in $FILES; do
+        case "$f" in */plugins.inc.d/*) rm -f "$f" ;; esac
+    done
+    for d in $DIRS; do
+        case "$d" in */Netglance) rm -rf "$d" ;; esac
+    done
+    for f in $FILES; do rm -f "$f"; done
+}
+
 do_install() {
     # arp-scan does the actual L2 sweep and isn't in OPNsense's repo, so it
     # travels in the payload and gets added from disk — no repo config, no
@@ -74,7 +89,15 @@ do_install() {
     fi
 
     echo "==> installing files"
+    remove_plugin_files
+    # The .inc is copied last, once the model classes it instantiates are in
+    # place: between the two there is a window where a GUI request would fatal
+    # on a half-installed plugin, and a fatal in plugins.inc.d takes down the
+    # whole OPNsense GUI, not just this page.
+    mv "$TMP/src/etc/inc/plugins.inc.d" "$TMP/plugins.inc.d"
     cp -Rp "$TMP/src/." /usr/local/
+    mkdir -p /usr/local/etc/inc/plugins.inc.d
+    cp -Rp "$TMP/plugins.inc.d/." /usr/local/etc/inc/plugins.inc.d/
     # install(1) writes a temp file and renames, so this works even while the
     # old daemon is still running (a plain cp would hit ETXTBSY).
     install -m 755 "$TMP/netglance" /usr/local/sbin/netglance
@@ -122,10 +145,9 @@ do_uninstall() {
     [ -f /var/db/netglance/.arp-scan-installed-by-netglance ] && ARP_WAS_OURS=yes
 
     echo "==> removing files"
-    # Files are deleted outright; directories are only rmdir'd, which quietly
-    # leaves shared OPNsense dirs (plugins.inc.d, rc.d, actions.d, …) alone and
-    # removes just the Netglance/ ones we created.
-    for f in $FILES; do rm -f "$f"; done
+    remove_plugin_files
+    # rmdir only, so shared OPNsense dirs (plugins.inc.d, rc.d, actions.d, …)
+    # survive and just the now-empty ones we created go away.
     for d in $DIRS; do rmdir "$d" 2>/dev/null || true; done
 
     rm -f /usr/local/sbin/netglance   # the only file not part of the payload's src/
